@@ -82,18 +82,25 @@ export function validateCodexHook(event: string, payload: unknown): boolean {
   return !!normalizeCodexHook(event, payload);
 }
 
-function shellQuote(value: string): string {
-  return `'${value.replaceAll("'", "'\"'\"'")}'`;
+/**
+ * Codex runs hook commands through sh on POSIX and through PowerShell on Windows, where a quoted
+ * program path needs the call operator and a single quote is escaped by doubling it (PowerShell
+ * also takes typographic single quotes as quotes, so those are doubled too).
+ */
+export function codexHookCommand(argv: string[], platform: NodeJS.Platform = process.platform): string {
+  if (platform === 'win32') return `& ${argv.map((value) => `'${value.replace(/['‘-‛]/g, '$&$&')}'`).join(' ')}`;
+  return argv.map((value) => `'${value.replaceAll("'", "'\"'\"'")}'`).join(' ');
 }
 
 /**
  * Build the CLI config overrides for all lifecycle hooks. The command is encoded as a TOML basic
- * string so paths containing spaces remain valid; the command itself is shell-quoted.
+ * string so paths containing spaces and Windows backslashes remain valid; the command itself is
+ * quoted for the shell Codex runs it through.
  */
-export function codexHookArgs(hookPath: string): string[] {
+export function codexHookArgs(hookPath: string, platform: NodeJS.Platform = process.platform): string[] {
   const args: string[] = [];
   for (const event of CODEX_HOOK_EVENTS) {
-    const command = [process.execPath, hookPath, event].map(shellQuote).join(' ');
+    const command = codexHookCommand([process.execPath, hookPath, event], platform);
     const config = `hooks.${event}=[{hooks=[{type="command",command=${JSON.stringify(command)},timeout=3}]}]`;
     args.push('-c', config);
   }

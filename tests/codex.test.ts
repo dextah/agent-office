@@ -8,6 +8,7 @@ import path from 'node:path';
 import {
   CODEX_HOOK_EVENTS,
   codexHookArgs,
+  codexHookCommand,
   codexModelArgs,
   normalizeCodexHook,
   validateCodexHook,
@@ -47,6 +48,21 @@ test('generates one stable CLI hook override per supported event', () => {
     assert.match(args[i * 2 + 1], /timeout=3/);
     assert.match(args[i * 2 + 1], /agent-office-codex-hook\.cjs/);
   }
+});
+
+test('hook commands are quoted for sh on POSIX and for PowerShell on Windows', () => {
+  assert.equal(codexHookCommand(['/usr/bin/node', "/tmp/it's here/hook.cjs", 'Stop'], 'linux'), `'/usr/bin/node' '/tmp/it'"'"'s here/hook.cjs' 'Stop'`);
+  // Codex runs Windows hooks through PowerShell: a quoted program needs `&`, and quotes double.
+  assert.equal(
+    codexHookCommand(['C:\\Program Files\\nodejs\\node.exe', "C:\\Users\\o'brien\\data\\hook.cjs", 'Stop'], 'win32'),
+    `& 'C:\\Program Files\\nodejs\\node.exe' 'C:\\Users\\o''brien\\data\\hook.cjs' 'Stop'`,
+  );
+  assert.equal(codexHookCommand(['C:\\a\u2019b\\hook.cjs'], 'win32'), `& 'C:\\a\u2019\u2019b\\hook.cjs'`);
+  // The override's TOML basic string keeps the backslashes, so Codex reads the command back intact.
+  const [, config] = codexHookArgs('C:\\Users\\Jo Smith\\.agent-office\\agent-office-codex-hook.cjs', 'win32');
+  const command = JSON.parse(/command=("(?:[^"\\]|\\.)*")/.exec(config)![1]);
+  assert.equal(command, codexHookCommand([process.execPath, 'C:\\Users\\Jo Smith\\.agent-office\\agent-office-codex-hook.cjs', 'SessionStart'], 'win32'));
+  assert.match(config, /command="& '.*\\\\Jo Smith\\\\\.agent-office\\\\agent-office-codex-hook\.cjs' 'SessionStart'"/);
 });
 
 test('a worker\'s own model and effort go on Codex\'s command line, in place of an office-wide model', () => {
