@@ -47,3 +47,10 @@ The prompt edits the way it does in your own terminal (iTerm2's *Natural Text Ed
 | ⌘ + ⌫ | Delete to the start of the line (Mac) |
 | ⌘ + ⌦ | Delete to the end of the line (Mac) |
 | ⌘ + ← / → | Jump to the start / end of the line (Mac) |
+
+Scroll back through what the worker printed with the mouse wheel, a trackpad, or a finger on a touch screen. That works even while the agent in it has asked for the mouse (turned on mouse tracking), which would otherwise take the wheel. On a full-screen program's own screen, like OpenCode or vim, the wheel stays the program's to scroll its own view.
+
+| Key | Action |
+| --- | --- |
+| Shift + wheel | Always scroll the terminal's history |
+| Shift + Page Up / Page Down | Scroll the history a screenful at a time |

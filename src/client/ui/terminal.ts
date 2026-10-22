@@ -13,6 +13,7 @@ import { findLine } from '../../shared/search';
 import { DROP_MAX_BYTES, droppedPaths } from '../../shared/drops';
 import { engineLabel, providerUsageNote, providerUsageState, providerWaitingLabel, resolvedProvider } from './provider';
 import { naturalKey } from './termkeys';
+import { attachScrolling } from './termscroll';
 import { termTabs } from './termtabs';
 import { dictateField, dictation } from './dictate';
 
@@ -346,6 +347,7 @@ export function openTerminal(net: Net, workerId: string, onChanges?: () => void,
       clearInterval(typingTimer);
       ro.disconnect();
       mic.drop();
+      detachScrolling();
       net.send({ t: 'worker.detach', workerId });
       term.dispose();
       if (current?.modal === modal) current = null;
@@ -367,6 +369,8 @@ export function openTerminal(net: Net, workerId: string, onChanges?: () => void,
   });
 
   term.open(host);
+  // The wheel, a trackpad, Shift+wheel and a finger all reach the history (termscroll.ts).
+  const detachScrolling = attachScrolling(term, host);
   const sendEsc = () => {
     sendSize(true);
     sayTyping();
