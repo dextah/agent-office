@@ -98,7 +98,7 @@ test('writes a mode-restricted helper that forwards paths without reading transc
     const file = writeCodexHook(dir);
     assert.equal(file, path.join(dir, 'agent-office-codex-hook.cjs'));
     const source = readFileSync(file, 'utf8');
-    assert.match(source, /MAX = 64 \* 1024/);
+    assert.match(source, /MAX = 1024 \* 1024/);
     assert.match(source, /AGENT_OFFICE_HOOK_TOKEN/);
     assert.doesNotMatch(source, /readFile|readSync|createReadStream/);
   } finally {

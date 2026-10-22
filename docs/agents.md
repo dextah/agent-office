@@ -72,6 +72,21 @@ OpenCode metrics come from assistant-message token/cost records exposed by its p
 
 DeepSeek Harness metrics come from ACP `usage_update`: tokens in context and the window's size, shown per worker and for the current desks, plus a session cost only when the harness reports one. The daily budget and historical ledger remain Claude-only.
 
+## Codex on Windows and hook troubleshooting
+
+The office and Codex must run on the same machine, using the same Windows account that signed in to Codex. Native Windows Codex hooks run through PowerShell, so a quoted program path needs the `&` call operator. Office generates that form on Windows and shell quoting on macOS/Linux, including when Node or the checkout lives in a path with spaces or apostrophes. The PowerShell callback and lifecycle flow are tested on Windows; the native runtime was also checked against Codex CLI 0.163.0.
+
+If Codex runs but its desk stays **Starting** or **Needs input**, or shows **Hook failed / hook exited with code 1**:
+
+1. Check `codex --version` in the terminal that starts the office. Update Codex if its CLI does not support native hooks or `/hooks`.
+2. Open the worker's terminal and run `/hooks`. Review and trust the Office commands. A Windows command starts with `&` followed by the quoted Node executable, the generated `agent-office-codex-hook.cjs` path, and the event name. Codex skips new or changed definitions until you trust them; see the [official hooks documentation](https://learn.chatgpt.com/docs/hooks).
+3. When running from a checkout, build the updated code with `npm run build` and restart that office. An installed `agent-office` command may point at a different installation: use `npm start -- --agent codex` from the checkout to run its build. `npm run dev` loads source directly, but already running workers still keep the command line they started with.
+4. Exit the old Codex process with `/quit`, then press **R** at its Office desk. This launches it with the updated hook commands and a fresh bridge token. Restarting the office alone can preserve running terminals, so it does not necessarily replace an old command. Review changed commands in `/hooks` again and send a prompt to check that the desk changes to **Working**, then **Done**.
+
+The hook helper returns valid informational JSON even when an event is ignored. Callback failures produce an **Agent Office Codex hook** warning: a missing worker environment means the command was not run with the desk's bridge settings; **HTTP 401** means the office rejected its identity, token, or event; a connectivity warning means the local hook server could not be reached. Restart the office if needed, exit and resume that worker, and keep any warning text when reporting a problem. Warnings contain neither tokens nor tool input/output, and never approve or deny Codex actions.
+
+Native tool hooks contain the tool's input and output as well as lifecycle fields. The helper reads at most 1 MiB, discards tool bodies, and forwards only bounded lifecycle metadata; larger events are skipped with a warning. This lets ordinary large tool results update status without forwarding their contents. Enterprise policies that disable non-managed hooks still apply.
+
 ## The office's prompts
 
 Everything the office tells a worker by itself can be rewritten in ⚙️ Settings → **🤖 Workers** → **📝 Edit the prompts…**: what **🤖 Hand to a worker**, **🔍 Review**, **Fix up & merge**, **Fix conflicts & merge** and **✍️ Ask a worker** send from the boards, what a meeting about an issue or a review panel starts with, the note the queue adds to a worktree task, the three board agents' briefs, every part the meeting room hands out, and the instructions for the model that writes the signs over workers' heads. Each one lists its `{{placeholders}}` (the issue number, the PR's branch, the file a meeting waits for…), which the office fills in when it sends it, and warns when one the office counts on is missing. **↺ Default** puts the office's own wording back. Admins edit them; they're the same on every floor and kept in `.agent-office/prompts.json` with the Default worker.

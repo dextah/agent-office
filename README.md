@@ -92,6 +92,8 @@ agent-office setup                          # the first-start walkthrough again 
 
 Every option is in [docs/configuration.md](docs/configuration.md). Choosing models and providers per worker is in [docs/agents.md](docs/agents.md).
 
+**Codex on Windows:** install and sign in to Codex on the machine running the office, then choose **Codex** when hiring (or start with `--agent codex`). Office hooks use PowerShell quoting on Windows. Open the worker's terminal and review/trust the generated commands in `/hooks`; until trusted, status tracking cannot start. After updating a source checkout, run `npm run build` and restart the office. Existing Codex processes keep their old hook commands: exit Codex with `/quit`, then press **R** at its desk, and review changed hooks again. See [Codex troubleshooting](docs/agents.md#codex-on-windows-and-hook-troubleshooting).
+
 To run it from a clone instead:
 
 ```bash

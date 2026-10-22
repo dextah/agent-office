@@ -50,8 +50,12 @@ test('rejects foreign session metadata, outside paths and symlink escapes', t =>
   const outside = path.join(home, 'rollout-other-thread-1.jsonl');
   writeFileSync(outside, header() + event() + '\n');
   assert.equal(reader.read(outside, 'thread-1', home), undefined);
-  const link = path.join(home, 'sessions', 'rollout-link-thread-1.jsonl');
-  symlinkSync(outside, link);
+  // Directory junctions need no Windows developer-mode/admin privilege, unlike file symlinks.
+  const link = process.platform === 'win32'
+    ? path.join(home, 'sessions', 'outside', path.basename(outside))
+    : path.join(home, 'sessions', 'rollout-link-thread-1.jsonl');
+  if (process.platform === 'win32') symlinkSync(home, path.dirname(link), 'junction');
+  else symlinkSync(outside, link);
   assert.equal(reader.read(link, 'thread-1', home), undefined);
 });
 
