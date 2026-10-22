@@ -9,6 +9,7 @@ import { answered, notified, wantsPermission } from '../workers/lifecycle.js';
 import { shq } from '../workers/process.js';
 import type { WorkerHandle } from '../workers/types.js';
 import { truncate } from '../workers/util.js';
+import { withYolo } from '../yolo.js';
 import type { ProviderAdapter } from './types.js';
 
 /**
@@ -19,17 +20,26 @@ const HOOK_TRIES = 6;
 
 /** First-run screens Claude shows before it can take a prompt. */
 const SETUP_PROMPT = /trust this folder|Do you trust the files|Select login method|Choose the text style|Press Enter to continue|Bypass Permissions mode/i;
+/** Claude's own confirmation before its first run with --dangerously-skip-permissions, which the yolo settings answer (see writeHookSettings). */
+const BYPASS_PROMPT = /Bypass Permissions mode/i;
 const NOT_LOGGED_IN = /Not logged in\s*·\s*Run \/login|Invalid API key|Please run \/login/i;
 
 interface ClaudeSetup {
   /** Its --settings: the office's hooks. */
   settings: string;
+  /** The same, for a worker in yolo: with Claude's bypass-permissions warning already accepted. */
+  yoloSettings: string;
   /** Its --mcp-config: the office's MCP server. */
   mcp?: string;
 }
 
-/** Claude Code's --settings for every worker: each hook event posted to the office, with curl or else the office's own node. */
-function writeHookSettings(dataDir: string): string {
+/**
+ * Claude Code's --settings for every worker: each hook event posted to the office, with curl or else
+ * the office's own node. A worker in yolo gets a second file with skipDangerousModePermissionPrompt
+ * too: an admin already said yes to running it that way, so Claude's own "Bypass Permissions mode"
+ * screen, which would hold up its first run until someone opened its terminal, never shows.
+ */
+function writeHookSettings(dataDir: string): { settings: string; yoloSettings: string } {
   const settingsPath = path.join(dataDir, 'claude-hooks.json');
   const events: [string, string | undefined][] = [
     ['SessionStart', undefined],
@@ -80,7 +90,9 @@ process.stdin.on('end', () => {
   // Looking at the office's workers doesn't need anyone's say-so; hiring and sending home still asks.
   const permissions = { allow: MCP_READ_ONLY };
   writeFileSync(settingsPath, JSON.stringify({ hooks, permissions }, null, 2), { mode: 0o600 });
-  return settingsPath;
+  const yoloPath = path.join(dataDir, 'claude-hooks-yolo.json');
+  writeFileSync(yoloPath, JSON.stringify({ hooks, permissions, skipDangerousModePermissionPrompt: true }, null, 2), { mode: 0o600 });
+  return { settings: settingsPath, yoloSettings: yoloPath };
 }
 
 function describeTool(payload: any): string {
@@ -186,6 +198,7 @@ function claudeHook(h: WorkerHandle, event: string, payload: any): boolean {
  */
 export function claudeBlocked(text: string, early: boolean): string | undefined {
   if (NOT_LOGGED_IN.test(text)) return "Claude isn't signed in on this machine — open the terminal and type /login";
+  if (BYPASS_PROMPT.test(text) && early) return 'Waiting on Claude’s Bypass Permissions warning — open the terminal and accept it';
   if (SETUP_PROMPT.test(text) && early) return 'Waiting on a setup prompt (trust / login) — open the terminal';
   return undefined;
 }
@@ -195,11 +208,11 @@ export const claude: ProviderAdapter<undefined, ClaudeSetup> = {
   scrubEnv: ['CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SSE_PORT', 'CLAUDE_CODE_EXECPATH', 'CLAUDE_PID', 'CLAUDE_EFFORT'],
   scrubPrefixes: ['CLAUDE_CODE_SESSION', 'CLAUDE_CODE_CHILD', 'CLAUDE_CODE_MESSAGING'],
   prepare: ({ dataDir, mcpScript }) => ({
-    settings: writeHookSettings(dataDir),
+    ...writeHookSettings(dataDir),
     mcp: mcpScript ? writeClaudeMcpConfig(dataDir, mcpScript) : undefined,
   }),
   launch({ h: { info }, args, prompt, resumeSessionId, station, setup }) {
-    args.unshift('--settings', setup.settings);
+    args.unshift('--settings', info.yolo ? setup.yoloSettings : setup.settings);
     // The office's MCP server: its workers, to list, hire, send home and tell (see office-workers.ts).
     // Ahead of --settings, which ends the list --mcp-config takes.
     if (setup.mcp) args.unshift('--mcp-config', setup.mcp);
@@ -207,7 +220,10 @@ export const claude: ProviderAdapter<undefined, ClaudeSetup> = {
     if (info.model) args.push('--model', info.model);
     if (info.effort) args.push('--effort', info.effort);
     // The queue agent only ever adds to the queue: without these it can't touch the checkout's files.
+    // Its tools stay off in yolo too: Claude keeps --disallowedTools while it skips the prompts.
     if (station === 'queue') args.push('--disallowedTools', ...QUEUE_AGENT_DISALLOWED_TOOLS);
+    // Yolo, on a resume too; once, whatever --agent-args has.
+    args = withYolo(args, 'claude', info.yolo);
     if (resumeSessionId) args.push('--resume', resumeSessionId);
     // `--` so a prompt like "- fix login" is never parsed as a CLI option.
     if (prompt) args.push('--', prompt);

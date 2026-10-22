@@ -411,6 +411,26 @@ test('settings, accounts, sign-ins and the boards answer as before', async () =>
   a.send({ t: 'prompts.station', kind: 'issues', choice: null });
   assert.equal(await told('🤖'), '🤖 Eve put the Issues agent back on the office’s default worker');
   assert.equal((await a.take('prompts', (m) => !m.state.stations?.issues)).state.stations?.issues, undefined);
+  // Yolo goes with a pick, toasted for everyone; a provider without a yolo flag is turned away.
+  a.send({ t: 'prompts.station', kind: 'pulls', choice: { provider: 'codex', yolo: true } });
+  assert.equal(await told('🤖'), '🤖 Eve set the PR agent’s provider, in ⚠️ yolo (no approval prompts)');
+  assert.equal((await a.take('prompts', (m) => !!m.state.stations?.pulls)).state.stations?.pulls?.yolo, true);
+  a.send({ t: 'prompts.station', kind: 'pulls', choice: { provider: 'opencode', yolo: true } });
+  await warned('Yolo can only be turned on for Claude Code, Codex, Muse or Cursor workers');
+  a.send({ t: 'prompts.station', kind: 'pulls', choice: null });
+  assert.equal(await told('🤖'), '🤖 Eve put the PR agent back on the office’s default worker');
+  a.send({ t: 'prompts.agent', choice: { provider: 'claude', yolo: 'yes' } });
+  await warned('Invalid yolo (expected true or false)');
+  a.send({ t: 'prompts.agent', choice: { provider: 'claude', model: 'opus', yolo: true } });
+  assert.equal(await told('🤖'), '🤖 Eve set the office’s default worker, in ⚠️ yolo (no approval prompts)');
+  assert.equal((await a.take('prompts', (m) => !!m.state.agent?.yolo)).state.agent?.provider, 'claude');
+  a.send({ t: 'prompts.agent', choice: null });
+  assert.equal(await told('🤖'), '🤖 Eve put the office’s default worker back to claude');
+  // A shell has no approvals to skip, and neither does a provider without the flag.
+  a.send({ t: 'worker.spawn', deskId: 'desk-1', kind: 'shell', yolo: true });
+  await warned('Shell workers have no approvals to skip');
+  a.send({ t: 'worker.spawn', deskId: 'desk-1', provider: 'opencode', yolo: true });
+  await warned('Yolo can only be turned on for Claude Code, Codex, Muse or Cursor workers');
   // The Queue agent is never picked for, and a provider the office can't run is refused.
   a.send({ t: 'prompts.station', kind: 'queue', choice: { provider: 'opencode' } });
   a.send({ t: 'notify.webhook', url: 'not a url' });
@@ -492,4 +512,31 @@ test('the hook server answers only workers, with their own token', async () => {
     assert.equal(res.status, 401);
     assert.match(((await res.json()) as { error: string }).error, /AGENT_OFFICE_WORKER_ID/);
   }
+});
+
+test('only an admin picks the default worker or a board agent’s, yolo or not', async () => {
+  const a = await Browser.open('?name=Eve');
+  await a.take('welcome');
+  a.send({ t: 'accounts.invite', name: 'Fay', role: 'member' });
+  const invite = (await a.take('accounts.invited')).invite!;
+  const joined = await post('/api/join', { token: invite.token, name: 'Fay', password: 'fay-has-a-long-password' });
+  assert.equal(joined.status, 200);
+  const fay = await Browser.open('?name=Fay', { cookie: (joined.headers.get('set-cookie') ?? '').split(';')[0], origin: base });
+  assert.deepEqual((await fay.take('welcome')).me.admin, false);
+  const warned = async () => (await fay.take('toast', (m) => m.level === 'warn')).text;
+  fay.send({ t: 'prompts.agent', choice: { provider: 'codex', yolo: true } });
+  assert.equal(await warned(), 'Only admins can pick the office’s default worker');
+  fay.send({ t: 'prompts.station', kind: 'issues', choice: { provider: 'codex', yolo: true } });
+  assert.equal(await warned(), 'Only admins can pick a board agent’s provider');
+  fay.send({ t: 'prompts.station', kind: 'pulls', choice: null });
+  assert.equal(await warned(), 'Only admins can pick a board agent’s provider');
+  // Nothing was kept: a pick would have gone out to everyone.
+  fay.send({ t: 'ping', at: 7 });
+  assert.equal((await fay.take('pong')).at, 7);
+  assert.deepEqual(fay.pending('prompts'), []);
+  await fay.close();
+  const account = (await a.take('accounts', (m) => m.state.accounts.some((x) => x.name === 'Fay'))).state.accounts.find((x) => x.name === 'Fay')!;
+  a.send({ t: 'accounts.revoke', accountId: account.id });
+  await a.take('accounts', (m) => !m.state.accounts.some((x) => x.name === 'Fay'));
+  await a.close();
 });

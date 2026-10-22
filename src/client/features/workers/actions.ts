@@ -77,8 +77,8 @@ export function installWorkerActions(ctx: Ctx, core: CoreState, parts: WorkerAct
     return true;
   }
 
-  function hire(deskId: string, prompt?: string, worktree = false, provider?: AgentProvider, model?: string, effort?: AgentEffort, issue?: number, repos?: string[], via?: 'herald') {
-    net.send({ t: 'worker.spawn', deskId, prompt, worktree, provider, model, effort, issue, repos: repos?.length ? repos : undefined, via });
+  function hire(deskId: string, prompt?: string, worktree = false, provider?: AgentProvider, model?: string, effort?: AgentEffort, issue?: number, repos?: string[], via?: 'herald', yolo?: boolean) {
+    net.send({ t: 'worker.spawn', deskId, prompt, worktree, provider, model, effort, ...(yolo ? { yolo: true } : {}), issue, repos: repos?.length ? repos : undefined, via });
     // The moment notifications start to matter: ask once (it has to come from a key press or click).
     if (settings.notify && notifyPermission() === 'default' && !askedToNotify) {
       askedToNotify = true;
@@ -104,7 +104,7 @@ export function installWorkerActions(ctx: Ctx, core: CoreState, parts: WorkerAct
         providerOption: true,
         worktreeOption: !!store.project?.branch,
         repoOptions: repoChoices(),
-        onSubmit: (text, o) => hire(deskId, text, o.worktree, o.provider, o.model, o.effort, undefined, o.repos),
+        onSubmit: (text, o) => hire(deskId, text, o.worktree, o.provider, o.model, o.effort, undefined, o.repos, undefined, o.yolo),
       });
     } else if (w.lost) {
       fixLostWorktree(w);
@@ -140,7 +140,7 @@ export function installWorkerActions(ctx: Ctx, core: CoreState, parts: WorkerAct
       providerOption: true,
       worktreeOption: !!store.project?.branch,
       repoOptions: repoChoices(),
-      onSubmit: (text, o) => hire(deskId, text || undefined, o.worktree, o.provider, o.model, o.effort, undefined, o.repos),
+      onSubmit: (text, o) => hire(deskId, text || undefined, o.worktree, o.provider, o.model, o.effort, undefined, o.repos, undefined, o.yolo),
     });
   }
 
@@ -489,9 +489,9 @@ export function installWorkerActions(ctx: Ctx, core: CoreState, parts: WorkerAct
       worktreeOption: !!store.project?.branch,
       providerOption: true,
       repoOptions: repoChoices(),
-      onSubmit: (prompt, to, worktree, provider, model, effort, repos) => {
+      onSubmit: (prompt, to, worktree, provider, model, effort, repos, yolo) => {
         if (to) net.send({ t: 'worker.prompt', workerId: to, prompt, issue });
-        else if (desk) hire(desk, prompt, worktree, provider, model, effort, issue, repos);
+        else if (desk) hire(desk, prompt, worktree, provider, model, effort, issue, repos, undefined, yolo);
       },
     });
   }

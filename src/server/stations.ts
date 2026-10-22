@@ -13,16 +13,16 @@ export function stationBrief(kind: StationKind, prompts?: PromptSource): string 
 
 /**
  * What the agent at a board starts on: what an admin picked for the Issues or PR agent, else the
- * office's default worker (the Queue agent's always).
+ * office's default worker (the Queue agent's always), yolo included.
  */
 export function stationChoice(
   kind: StationKind | undefined,
   prompts: { station(kind: ConfigurableStation): AgentChoice | undefined } | undefined,
   officeDefault: AgentChoice,
-): [AgentProvider, string | undefined, AgentEffort | undefined] {
+): [AgentProvider, string | undefined, AgentEffort | undefined, boolean | undefined] {
   const picked = kind && kind !== 'queue' ? prompts?.station(kind) : undefined;
   const c = picked ?? officeDefault;
-  return [c.provider, c.model, c.effort];
+  return [c.provider, c.model, c.effort, c.yolo];
 }
 
 /** Claude Code tools the queue agent is launched without, so it can't edit the checkout even by mistake. */

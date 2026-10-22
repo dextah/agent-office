@@ -11,4 +11,6 @@ export interface AgentChoice {
   /** A model id its provider takes (a Claude model alias, an OpenCode provider/model, a Codex model id…); unset for the provider's own default. */
   model?: string;
   effort?: AgentEffort;
+  /** Runs without asking before each command or edit: its CLI's yolo flag (see ProviderMeta.yolo). Only for a provider that has one. */
+  yolo?: boolean;
 }

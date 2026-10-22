@@ -290,7 +290,7 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
   hookRemove.addEventListener('click', () => net.send({ t: 'notify.webhook', url: '' }));
 
   // The worker everyone starts on, unless whoever starts one picks another. Admins pick it.
-  const agent = agentFields(store.project, 'office-agent', officeChoice(store.project));
+  const agent = agentFields(store.project, 'office-agent', officeChoice(store.project), 'Provider', { yolo: true });
   let agentTouched = false;
   agent.element.addEventListener('change', () => (agentTouched = true));
   agent.element.addEventListener('input', () => (agentTouched = true));
@@ -302,7 +302,7 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
   // What the Issues and PR agents start on: each one's own pick, or the default above (see settings-boards.ts).
   const boardRows = BOARD_AGENTS.map((kind) => ({ kind, row: boardAgentRow(net, kind) }));
   const boardNote = h('p.setting-note');
-  boardNote.textContent = 'What the Issues and PR agents start on when nobody is there yet: leave them on the default worker above, or press ✏️ Edit to give one a provider, model and effort of its own. The Queue agent always runs on the default.';
+  boardNote.textContent = 'What the Issues and PR agents start on when nobody is there yet: leave them on the default worker above, or press ✏️ Edit to give one a provider, model, effort and yolo of its own. The Queue agent always runs on the default. ⚠️ Yolo skips every approval prompt: the agent runs commands and edits without asking.';
   const paintAgent = () => {
     const admin = store.me.admin;
     const picked = store.prompts.agent;
@@ -316,6 +316,7 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
     if (!agentTouched) agent.set(now);
     agentNote.textContent =
       'Every worker starts on this: hired at a desk, handed an issue or a pull request from the boards, taken off the queue, the board agents and meetings. Where you start one, ✏️ Edit picks another just for it.' +
+      ' ⚠️ Yolo goes with it to workers hired on the default and the board agents; queue tasks and meetings always ask before commands and edits.' +
       (picked ? ` Set by ${picked.by} ${timeAgo(picked.at)}.` : ' It’s the agent the office was started with, on its own default model.') +
       (admin ? '' : ' Admins can change it.');
   };

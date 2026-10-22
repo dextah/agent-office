@@ -5,6 +5,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { normalizeMuseHook, withoutMuseLaunchArgs, writeMuseHome, type MuseHome } from '../muse.js';
 import { reduceLifecycle } from '../workers/lifecycle.js';
+import { withYolo } from '../yolo.js';
 import type { ProviderAdapter } from './types.js';
 
 export const muse: ProviderAdapter<undefined, MuseHome> = {
@@ -18,6 +19,8 @@ export const muse: ProviderAdapter<undefined, MuseHome> = {
     const { info } = h;
     args = withoutMuseLaunchArgs(args);
     args.push('--trust-workspace');
+    // Hired in yolo: on a resume too. --agent-args can't give it (see withoutMuseLaunchArgs).
+    args = withYolo(args, 'muse', info.yolo);
     if (resumeSessionId) {
       args.push('resume', resumeSessionId);
       // Muse resume cannot take a prompt on argv: it's pasted into the TUI after SessionStart.

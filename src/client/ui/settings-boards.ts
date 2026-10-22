@@ -1,5 +1,5 @@
 // ⚙️ Settings' Board agents, under Workers: what the Issues and PR agents start on when nobody
-// picks for them there. An admin can give each one a provider, model and effort of its own; left
+// picks for them there. An admin can give each one a provider, model, effort and yolo of its own; left
 // alone, they run on the office's Default worker (see server/stations.ts). The Queue agent is never
 // picked for here: it always runs on the default.
 import type { Net } from '../net';
@@ -32,7 +32,7 @@ export interface BoardAgentRow {
 export function boardAgentRow(net: Net, kind: ConfigurableStation): BoardAgentRow {
   const name = STATION_AGENT[kind].name;
   const id = `station-${kind}`;
-  const fields = agentFields(store.project, id, stationChoice(kind));
+  const fields = agentFields(store.project, id, stationChoice(kind), 'Provider', { yolo: true });
   let editing = false;
   /** What the fields were opened on: ✏️ Edit with nothing changed sends nothing. */
   let opened: AgentChoice | undefined;
@@ -43,7 +43,7 @@ export function boardAgentRow(net: Net, kind: ConfigurableStation): BoardAgentRo
   const actions = h('div.seg', { style: 'margin-top:8px' }, edit, save, back);
 
   /** The station's own pick, when an admin made one this project can still run. */
-  const own = () => store.prompts.stations?.[kind] as (AgentChoice & { by: string; at: number }) | undefined;
+  const own = () => store.prompts.stations?.[kind];
 
   edit.addEventListener('click', () => {
     editing = !editing;
@@ -100,11 +100,11 @@ export function boardAgentRow(net: Net, kind: ConfigurableStation): BoardAgentRo
 /** What a board agent starts on: its own pick, or the office's default worker. */
 export function stationChoice(kind: ConfigurableStation): AgentChoice {
   const mine = store.prompts.stations?.[kind];
-  if (mine) return { provider: mine.provider, ...(mine.model ? { model: mine.model } : {}), ...(mine.effort ? { effort: mine.effort } : {}) };
+  if (mine) return { provider: mine.provider, ...(mine.model ? { model: mine.model } : {}), ...(mine.effort ? { effort: mine.effort } : {}), ...(mine.yolo ? { yolo: true } : {}) };
   return officeChoice(store.project);
 }
 
 /** Whether two picks would start a worker the same way. */
 function sameChoice(a: AgentChoice, b: AgentChoice): boolean {
-  return a.provider === b.provider && (a.model ?? '') === (b.model ?? '') && (a.effort ?? '') === (b.effort ?? '');
+  return a.provider === b.provider && (a.model ?? '') === (b.model ?? '') && (a.effort ?? '') === (b.effort ?? '') && !a.yolo === !b.yolo;
 }

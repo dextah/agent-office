@@ -1740,3 +1740,46 @@ test('a board agent starts on the worker an admin picked for its station, and th
   if (typeof queue === 'string') return;
   assert.deepEqual([queue.info.provider, queue.info.model, queue.info.effort], ['claude', 'opus', 'high']);
 });
+
+test('a PR agent picked to run Codex in yolo starts, and resumes after a restart, bypassing approvals', async (t) => {
+  const f = fixture();
+  isolateProviderEnvironment(f, t);
+  const previousLog = process.env.FAKE_AGENT_LOG;
+  process.env.FAKE_AGENT_LOG = f.log;
+  t.after(() => {
+    if (previousLog === undefined) delete process.env.FAKE_AGENT_LOG;
+    else process.env.FAKE_AGENT_LOG = previousLog;
+    f.close();
+  });
+  const prompts: PromptSource = {
+    text: (id) => PROMPTS[id].text,
+    agent: () => undefined,
+    station: (kind) => (kind === 'pulls' ? { provider: 'codex', model: 'gpt-5.5', yolo: true } : undefined),
+  };
+  // --agent-args already saying --yolo: Codex refuses its flag twice, so it isn't added again.
+  const workers = new WorkerManager(f.root, f.data, f.codex, ['--yolo'], { url: 'http://127.0.0.1:1', token: '' }, events([]), ledger(f.data), undefined, prompts);
+  t.after(() => workers.shutdown());
+  const pulls = workers.station('station-pulls', 'Ada', 'Review #12');
+  assert.equal(typeof pulls, 'object');
+  if (typeof pulls === 'string') return;
+  assert.deepEqual([pulls.info.provider, pulls.info.model, pulls.info.yolo], ['codex', 'gpt-5.5', true]);
+  const first = (await waitFor(f.read, (x) => x.some((r) => r.kind === 'codex'))).find((r) => r.kind === 'codex')!;
+  assert.deepEqual(first.args.filter((a) => a === '--yolo' || a === '--dangerously-bypass-approvals-and-sandbox'), ['--yolo']);
+  assert.equal(first.args.at(-2), '--');
+  // The Issues agent, left on the default, asks as before.
+  const issues = workers.station('station-issues', 'Ada', 'File one');
+  if (typeof issues === 'string') return assert.fail(issues);
+  assert.equal(issues.info.yolo, undefined);
+  assert.equal(workers.handleCodexHook(pulls.info.id, first.env.hookToken!, 'SessionStart', { session_id: 'codex-pr' }), true);
+  workers.shutdown();
+
+  // After a restart, without --agent-args, it's still in yolo: the flag goes on ahead of `resume`.
+  const restored = manager(f, f.codex, [], []);
+  t.after(() => restored.shutdown());
+  await restored.start();
+  assert.equal(restored.get(pulls.info.id)?.yolo, true);
+  const next = (await waitFor(f.read, (x) => x.some((r) => r.kind === 'codex' && r.args.includes('resume')))).filter((r) => r.kind === 'codex' && r.args.includes('resume')).at(-1)!;
+  assert.ok(next.args.indexOf('--dangerously-bypass-approvals-and-sandbox') >= 0);
+  assert.ok(next.args.indexOf('--dangerously-bypass-approvals-and-sandbox') < next.args.indexOf('resume'));
+  assert.deepEqual(next.args.slice(-2), ['resume', 'codex-pr']);
+});

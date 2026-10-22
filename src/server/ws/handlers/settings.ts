@@ -7,7 +7,7 @@ import { OFFICE_MAP } from '../../../shared/maps/index.js';
 import { isThemePick } from '../../../shared/theme.js';
 import { PROMPTS, PROMPT_MAX, isPromptId } from '../../../shared/prompts.js';
 import { STATION_AGENT } from '../../../shared/layout.js';
-import type { SettingsClientMsg } from '../../../shared/protocol.js';
+import type { AgentChoice, SettingsClientMsg } from '../../../shared/protocol.js';
 import type { Ctx } from '../../office/context.js';
 import { str } from '../../office/input.js';
 import type { HandlerMap, ViewPieces } from './types.js';
@@ -31,6 +31,25 @@ export const mapNews = (ctx: Ctx, was: string, who?: string) => {
   const why = now === OFFICE_MAP ? `: the map "${was}" won't load (see ⚙️ Settings)` : ': it loads again';
   ctx.toastAll(who ? `${who} changed the building's map to ${plan.icon} ${plan.name}` : `The building's map is ${plan.icon} ${plan.name} now${why}`);
 };
+
+/**
+ * A worker picked in ⚙️ Settings, off the wire: null for ↺ Use the default, undefined for something
+ * that isn't one. What it holds is checked by OfficePrompts before it's kept, yolo too.
+ */
+function choiceOf(ch: unknown): AgentChoice | null | undefined {
+  if (ch === null) return null;
+  if (!ch || typeof ch !== 'object') return undefined;
+  const c = ch as Record<string, unknown>;
+  return {
+    provider: c.provider as AgentChoice['provider'],
+    model: c.model === undefined || c.model === '' ? undefined : str(c.model, OPEN_CODE_MODEL_MAX + 1),
+    effort: c.effort === undefined ? undefined : (c.effort as AgentChoice['effort']),
+    yolo: c.yolo === undefined || c.yolo === false ? undefined : (c.yolo as boolean),
+  };
+}
+
+/** What a toast adds about a pick in yolo, so everyone hears it skips approvals. */
+const yoloNote = (choice: AgentChoice | null) => (choice?.yolo ? ', in ⚠️ yolo (no approval prompts)' : '');
 
 export const settingsHandlers = {
   'notify.webhook'(ctx, c, msg) {
@@ -123,31 +142,21 @@ export const settingsHandlers = {
   'prompts.agent'(ctx, c, msg) {
     const who = c.peer.name;
     if (!ctx.meOf(c.accountId).admin) return ctx.warn(c, 'Only admins can pick the office’s default worker');
-    const ch = msg.choice;
-    if (ch !== null && (!ch || typeof ch !== 'object')) return;
-    const choice = ch && {
-      provider: ch.provider,
-      model: ch.model === undefined || ch.model === '' ? undefined : str(ch.model, OPEN_CODE_MODEL_MAX + 1),
-      effort: ch.effort === undefined ? undefined : ch.effort,
-    };
+    const choice = choiceOf(msg.choice);
+    if (choice === undefined) return;
     const err = ctx.prompts.setAgent(choice, who);
     if (err) return ctx.warn(c, err);
-    ctx.toastAll(choice ? `🤖 ${who} set the office’s default worker` : `🤖 ${who} put the office’s default worker back to ${path.basename(ctx.cfg.agentCmd)}`);
+    ctx.toastAll(choice ? `🤖 ${who} set the office’s default worker${yoloNote(choice)}` : `🤖 ${who} put the office’s default worker back to ${path.basename(ctx.cfg.agentCmd)}`);
   },
   'prompts.station'(ctx, c, msg) {
     const who = c.peer.name;
     if (!ctx.meOf(c.accountId).admin) return ctx.warn(c, 'Only admins can pick a board agent’s provider');
     const kind = msg.kind;
     if (kind !== 'issues' && kind !== 'pulls') return;
-    const ch = msg.choice;
-    if (ch !== null && (!ch || typeof ch !== 'object')) return;
-    const choice = ch && {
-      provider: ch.provider,
-      model: ch.model === undefined || ch.model === '' ? undefined : str(ch.model, OPEN_CODE_MODEL_MAX + 1),
-      effort: ch.effort === undefined ? undefined : ch.effort,
-    };
+    const choice = choiceOf(msg.choice);
+    if (choice === undefined) return;
     const err = ctx.prompts.setStation(kind, choice, who);
     if (err) return ctx.warn(c, err);
-    ctx.toastAll(choice ? `🤖 ${who} set the ${STATION_AGENT[kind].name}’s provider` : `🤖 ${who} put the ${STATION_AGENT[kind].name} back on the office’s default worker`);
+    ctx.toastAll(choice ? `🤖 ${who} set the ${STATION_AGENT[kind].name}’s provider${yoloNote(choice)}` : `🤖 ${who} put the ${STATION_AGENT[kind].name} back on the office’s default worker`);
   },
 } satisfies HandlerMap<SettingsClientMsg>;

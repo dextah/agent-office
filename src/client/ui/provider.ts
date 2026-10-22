@@ -4,6 +4,7 @@ import { AGENT_EFFORTS, isAgentEffort } from '../../shared/protocol';
 import { AGENT_PROVIDERS, CLAUDE_MODEL_NAMES, PROVIDER_META, claudeModelName, isAgentProvider, isClaudeModel, takesEffort, type ModelOption } from '../../shared/providers';
 import { store } from '../state';
 import { h } from './dom';
+import { YOLO_BADGE, yoloField } from './yolo';
 
 export const PROVIDER_LABEL = Object.fromEntries(AGENT_PROVIDERS.map((p) => [p, PROVIDER_META[p].label])) as Record<AgentProvider, string>;
 
@@ -35,10 +36,14 @@ export function modelBadge(provider: AgentProvider | undefined, model: string | 
   return parts.length ? parts.join(' · ') : undefined;
 }
 
-/** What a worker runs, in a line: "Claude Code · Opus 5.5 · High", or only "Codex" for one on its defaults that hasn't said. */
-export function engineLabel(w: Pick<WorkerInfo, 'provider' | 'model' | 'effort' | 'usage'>, project: ProjectInfo | null): string {
-  const badge = modelBadge(w.provider, w.model, w.effort, w.usage?.model);
-  return badge ? `${providerLabel(w.provider, project)} · ${badge}` : providerLabel(w.provider, project);
+/** A worker's badge: its model and effort (see modelBadge), and "⚠️ Yolo" when it skips approvals. */
+export function workerBadge(w: Pick<WorkerInfo, 'provider' | 'model' | 'effort' | 'usage' | 'yolo'>): string | undefined {
+  return [modelBadge(w.provider, w.model, w.effort, w.usage?.model), w.yolo && YOLO_BADGE].filter(Boolean).join(' · ') || undefined;
+}
+
+/** What a worker runs, in a line: "Claude Code · Opus 5.5 · High", or only "Codex" for one on its defaults that hasn't said, and "⚠️ Yolo" when it skips approvals. */
+export function engineLabel(w: Pick<WorkerInfo, 'provider' | 'model' | 'effort' | 'usage' | 'yolo'>, project: ProjectInfo | null): string {
+  return [providerLabel(w.provider, project), workerBadge(w)].filter(Boolean).join(' · ');
 }
 
 /** Providers the server says this project can start. */
@@ -93,15 +98,14 @@ export function providerUsageNote(provider: AgentProvider): string {
 export function officeChoice(project: ProjectInfo | null): AgentChoice {
   const picked = store.prompts.agent;
   if (picked && supportedProviders(project).includes(picked.provider)) {
-    return { provider: picked.provider, ...(picked.model ? { model: picked.model } : {}), ...(picked.effort ? { effort: picked.effort } : {}) };
+    return { provider: picked.provider, ...(picked.model ? { model: picked.model } : {}), ...(picked.effort ? { effort: picked.effort } : {}), ...(picked.yolo ? { yolo: true } : {}) };
   }
   return { provider: resolvedProvider(project?.defaultProvider, project) };
 }
 
-/** "Claude Code · Opus · High", "Claude Code", "OpenCode · anthropic/claude-sonnet-4", "Grok · grok-4.6". */
+/** "Claude Code · Opus · High", "Claude Code", "OpenCode · anthropic/claude-sonnet-4", "Codex · gpt-5.5 · ⚠️ Yolo". */
 export function choiceLabel(choice: AgentChoice): string {
-  const badge = modelBadge(choice.provider, choice.model, choice.effort);
-  return badge ? `${PROVIDER_LABEL[choice.provider]} · ${badge}` : PROVIDER_LABEL[choice.provider];
+  return [PROVIDER_LABEL[choice.provider], modelBadge(choice.provider, choice.model, choice.effort), choice.yolo && YOLO_BADGE].filter(Boolean).join(' · ');
 }
 
 export interface ProviderPicker {
@@ -111,6 +115,8 @@ export interface ProviderPicker {
   model(): string | undefined;
   /** The reasoning effort picked for it, when one was (Pi calls it thinking). */
   effort(): AgentEffort | undefined;
+  /** Whether it skips its approval prompts: only where the fields offer the yolo box (see agentFields). */
+  yolo(): boolean;
   /** Reports a visible field error for a typed model its provider doesn't take. */
   valid(): boolean;
 }
@@ -158,7 +164,7 @@ function loadCatalogue(provider: AgentProvider): Promise<void> | undefined {
  * takes, and how its model is asked for, is its row in the provider table (shared/providers.ts), so
  * a provider added there gets its fields here.
  */
-export function agentFields(project: ProjectInfo | null, id: string, initial: AgentChoice, label = 'Provider'): AgentFields {
+export function agentFields(project: ProjectInfo | null, id: string, initial: AgentChoice, label = 'Provider', opts: { yolo?: boolean } = {}): AgentFields {
   const options = supportedProviders(project);
   const fallback = resolvedProvider(project?.defaultProvider, project);
   const select = h('select.provider-select', { id, 'aria-label': 'Worker provider' }) as HTMLSelectElement;
@@ -175,7 +181,9 @@ export function agentFields(project: ProjectInfo | null, id: string, initial: Ag
   for (const e of AGENT_EFFORTS) effortSelect.append(h('option', { value: e }, EFFORT_LABEL[e]));
   const hint = h('small.provider-model-hint');
   const fields = h('div.provider-model', {}, modelLabel, modelSelect, modelInput, suggestions, effortLabel, effortSelect, hint);
-  const element = h('div.provider-choice', {}, h('label', { for: id }, label), select, note, fields);
+  // Skipping approvals, where it's offered: the hire dialog and ⚙️ Settings' workers.
+  const yolo = opts.yolo ? yoloField(id) : undefined;
+  const element = h('div.provider-choice', {}, h('label', { for: id }, label), select, note, fields, yolo?.element ?? null);
 
   const value = () => (options.includes(select.value as AgentProvider) ? (select.value as AgentProvider) : fallback);
   const meta = () => PROVIDER_META[value()];
@@ -249,6 +257,7 @@ export function agentFields(project: ProjectInfo | null, id: string, initial: Ag
     pick(mine && c.model && meta().validModel?.(c.model) ? c.model : '');
     modelInput.setCustomValidity('');
     effortSelect.value = mine && c.effort && meta().takesEffort ? c.effort : '';
+    yolo?.set(value(), mine && c.yolo);
     paint();
     load();
   };
@@ -275,7 +284,8 @@ export function agentFields(project: ProjectInfo | null, id: string, initial: Ag
     effort,
     model,
     set,
-    choice: () => ({ provider: value(), ...(model() ? { model: model() } : {}), ...(effort() ? { effort: effort() } : {}) }),
+    yolo: () => !!yolo?.value(),
+    choice: () => ({ provider: value(), ...(model() ? { model: model() } : {}), ...(effort() ? { effort: effort() } : {}), ...(yolo?.value() ? { yolo: true } : {}) }),
     valid: () => {
       const okay = !chosen || !!meta().validModel?.(chosen);
       modelInput.setCustomValidity(okay ? '' : (meta().models?.invalid ?? 'That isn’t a model id this provider takes.'));
@@ -289,15 +299,16 @@ export function agentFields(project: ProjectInfo | null, id: string, initial: Ag
  * Which worker to start: the office's default (⚙️ Settings), shown as a line, with an ✏️ Edit button
  * that opens the provider, model and effort fields to pick another for this one.
  */
-export function providerPicker(project: ProjectInfo | null, id: string, label = 'Worker'): ProviderPicker {
+export function providerPicker(project: ProjectInfo | null, id: string, label = 'Worker', opts: { yolo?: boolean } = {}): ProviderPicker {
   let editing = false;
-  const fields = agentFields(project, id, officeChoice(project));
+  const fields = agentFields(project, id, officeChoice(project), 'Provider', opts);
   fields.element.classList.add('hidden');
   const current = h('span.provider-current');
   const edit = h('button.btn.small', { type: 'button', 'aria-expanded': 'false' }) as HTMLButtonElement;
   const element = h('div.provider-pick', {}, h('div.provider-summary', {}, h('span.provider-label', {}, label), current, edit), fields.element);
   const paint = () => {
-    const def = officeChoice(project);
+    // Where yolo isn't offered (the queue, a meeting), the default's yolo doesn't come with it.
+    const def = opts.yolo ? officeChoice(project) : { ...officeChoice(project), yolo: undefined };
     current.textContent = choiceLabel(def);
     current.title = store.prompts.agent ? 'The office’s default worker, set in ⚙️ Settings' : 'The office’s default worker (its --agent); an admin can pick another in ⚙️ Settings';
     current.classList.toggle('hidden', editing);
@@ -322,6 +333,8 @@ export function providerPicker(project: ProjectInfo | null, id: string, label = 
     value: () => (editing ? fields.value() : officeChoice(project).provider),
     model: () => (editing ? fields.model() : officeChoice(project).model),
     effort: () => (editing ? fields.effort() : officeChoice(project).effort),
+    // Left on the default, a worker skips approvals when the default does, where yolo is offered at all.
+    yolo: () => !!opts.yolo && (editing ? fields.yolo() : !!officeChoice(project).yolo),
     valid: () => !editing || fields.valid(),
   };
 }

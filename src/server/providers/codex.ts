@@ -7,6 +7,7 @@ import { CodexUsageReader } from '../codex-usage.js';
 import { codexMcpArgs } from '../office-workers.js';
 import { reduceLifecycle, type ToolTracker } from '../workers/lifecycle.js';
 import type { WorkerHandle } from '../workers/types.js';
+import { withYolo } from '../yolo.js';
 import type { ProviderAdapter } from './types.js';
 
 interface CodexState {
@@ -94,6 +95,8 @@ export const codex: ProviderAdapter<CodexState, CodexSetup> = {
   launch({ h, args, prompt, resumeSessionId, setup }) {
     // Resumed too: Codex resumes on whatever its config says now, not on the model the session ran on.
     args = codexModelArgs(args, h.info.model, h.info.effort);
+    // Yolo goes on before `resume` too: a resumed session asks again unless it's told not to.
+    args = withYolo(args, 'codex', h.info.yolo);
     args.push(...codexHookArgs(setup.hook), ...(setup.mcpScript ? codexMcpArgs(setup.mcpScript) : []), '--no-alt-screen');
     if (resumeSessionId) args.push('resume', resumeSessionId);
     if (prompt) args.push('--', prompt);

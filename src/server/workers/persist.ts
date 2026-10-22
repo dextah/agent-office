@@ -2,7 +2,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import type { AgentProvider, WorkerInfo, WorkerStatus, WorkerTask } from '../../shared/protocol.js';
 import { DESK_BY_ID } from '../../shared/layout.js';
-import { isAgentProvider, savedEffort, savedModel } from '../../shared/providers.js';
+import { isAgentProvider, savedEffort, savedModel, savedYolo } from '../../shared/providers.js';
 import { providerAdapter } from '../providers/index.js';
 import { reportedUsage } from '../reported-usage.js';
 import { restoreTracker, trackerUsage } from '../usage.js';
@@ -24,6 +24,7 @@ export function saveWorkers(file: string, workers: Iterable<Worker>, stopping: b
     provider: info.provider,
     model: info.model,
     effort: info.effort,
+    yolo: info.yolo,
     deskId: info.deskId,
     name: info.name,
     color: info.color,
@@ -78,6 +79,7 @@ export function restoreWorkers(file: string, workers: Map<string, Worker>, defau
         provider,
         model: savedModel(provider, s.model),
         effort: savedEffort(provider, s.effort),
+        ...(savedYolo(provider, s.yolo) ? { yolo: true } : {}),
         deskId: s.deskId,
         name: s.name ?? 'Worker',
         color: s.color ?? COLORS[0],

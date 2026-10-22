@@ -144,6 +144,39 @@ test('a board agent’s own worker is checked before it is kept, and one the off
   assert.deepEqual(without.state().stations, { pulls: { provider: 'codex', model: 'gpt-5.5', effort: 'low', by: 'Ada', at: 2 } });
 });
 
+test('yolo is kept with the default worker and a board agent’s, only for a provider with a flag for it', (t) => {
+  const dir = scratch(t);
+  const providers = { list: ['claude', 'opencode', 'codex', 'cursor'] as AgentChoice['provider'][], configured: 'claude' as const };
+  const book = new OfficePrompts(dir, providers, () => {});
+  // Checked like a model or an effort: a provider without one, or something that isn't true or false, is turned away.
+  assert.match(book.setAgent({ provider: 'opencode', yolo: true }, 'Ada') ?? '', /Yolo can only be turned on for Claude Code, Codex, Muse or Cursor workers/);
+  assert.match(book.setStation('pulls', { provider: 'opencode', yolo: true }, 'Ada') ?? '', /Yolo can only/);
+  assert.match(book.setStation('pulls', { provider: 'codex', yolo: 'yes' as never }, 'Ada') ?? '', /Invalid yolo/);
+  assert.equal(book.agent(), undefined);
+  assert.equal(book.station('pulls'), undefined);
+
+  assert.equal(book.setAgent({ provider: 'claude', model: 'opus', yolo: true }, 'Ada'), undefined);
+  assert.equal(book.setStation('pulls', { provider: 'codex', model: 'gpt-5.5', yolo: true }, 'Ada'), undefined);
+  // Off is the same as never set: nothing is written for it.
+  assert.equal(book.setStation('issues', { provider: 'cursor', yolo: false }, 'Ada'), undefined);
+  assert.deepEqual(book.agent(), { provider: 'claude', model: 'opus', yolo: true });
+  assert.deepEqual(book.station('pulls'), { provider: 'codex', model: 'gpt-5.5', yolo: true });
+  assert.deepEqual(book.station('issues'), { provider: 'cursor' });
+  assert.equal(book.state().stations?.pulls?.yolo, true);
+
+  // It's there after a restart.
+  const again = new OfficePrompts(dir, providers, () => {});
+  assert.deepEqual(again.agent(), { provider: 'claude', model: 'opus', yolo: true });
+  assert.deepEqual(again.station('pulls'), { provider: 'codex', model: 'gpt-5.5', yolo: true });
+
+  // A hand-edited prompts.json can't sneak it onto a provider without one: that pick is forgotten.
+  writeFileSync(path.join(dir, 'prompts.json'), JSON.stringify({ custom: {}, agent: { provider: 'opencode', yolo: true, by: 'Ada', at: 1 }, stations: { pulls: { provider: 'codex', yolo: 'sure', by: 'Ada', at: 2 } } }));
+  const edited = new OfficePrompts(dir, providers, () => {});
+  assert.equal(edited.agent(), undefined);
+  // Anything but true is off.
+  assert.deepEqual(edited.station('pulls'), { provider: 'codex' });
+});
+
 test('a board agent is told its rewritten brief', () => {
   const source: PromptSource = { text: (id) => (id === 'station.pulls' ? 'You review PRs. The request:' : PROMPTS[id].text), agent: () => undefined, station: () => undefined };
   assert.equal(stationBrief('pulls', source), 'You review PRs. The request:');
