@@ -36,6 +36,8 @@ export interface FloorContext {
   agentArgs: string[];
   /** The DSH profile DeepSeek Harness workers boot (see server/dsh.ts). */
   dshProfile: string;
+  /** Extra args for every Codex worker (`--codex-args`, see server/codex-args.ts). */
+  codexArgs: string[];
   hook: HookEnv;
   /** Spend, across every floor. */
   ledger: Ledger;
@@ -203,7 +205,7 @@ export class Floor {
       ctx.capacity,
       ctx.prompts,
       ctx.runAs,
-      ctx.dshProfile,
+      { dshProfile: ctx.dshProfile, codexArgs: ctx.codexArgs },
     );
     this.workers.wing = () => this.plan.wing;
 

@@ -13,6 +13,8 @@ export interface ProviderFloor {
   mcpScript?: string;
   /** The DSH profile a DeepSeek Harness worker boots (`--dsh-profile`). */
   dshProfile: string;
+  /** Extra args for every Codex worker (`--codex-args`, see codex-args.ts). */
+  codexArgs?: readonly string[];
 }
 
 /** One run of a worker, for its adapter to turn into a command line. */
@@ -20,7 +22,7 @@ export interface LaunchInput<S, P> {
   h: WorkerHandle<S>;
   /**
    * The command line so far: the office's --agent-args when it runs the office's --agent, nothing
-   * otherwise. A fresh copy, its own to change.
+   * otherwise. A fresh copy, its own to change. (Codex adds --codex-args itself.)
    */
   args: string[];
   /** Its first message. */

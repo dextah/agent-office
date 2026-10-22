@@ -23,6 +23,8 @@ agent-office [dir] [options]
       --agent <cmd>       Default agent command (default "claude")
       --agent-args <str>  Extra args for the configured agent, e.g. "--model opus"; a yolo
                           flag here isn't added twice (see docs/agents.md, Yolo)
+      --codex-args <str>  Extra args for every Codex worker, default agent or not, e.g. "--yolo"
+                          (env AGENT_OFFICE_CODEX_ARGS; see docs/agents.md)
       --dsh-profile <n>   DeepSeek Harness profile over ACP (default "acp")
       --tls-cert <file>   Serve HTTPS with this cert…
       --tls-key <file>    …and key

@@ -3,6 +3,7 @@
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { codexHookArgs, codexModelArgs, normalizeCodexHook, writeCodexHook } from '../codex.js';
+import { hasCodexSwitch, withCodexArgs } from '../codex-args.js';
 import { CodexUsageReader } from '../codex-usage.js';
 import { codexMcpArgs } from '../office-workers.js';
 import { reduceLifecycle, type ToolTracker } from '../workers/lifecycle.js';
@@ -25,6 +26,8 @@ interface CodexState {
 interface CodexSetup {
   hook: string;
   mcpScript?: string;
+  /** --codex-args, for every Codex worker (see codex-args.ts). */
+  args?: readonly string[];
 }
 
 /** Where a Codex worker's sessions are logged, for reading its usage. */
@@ -91,13 +94,17 @@ export const codex: ProviderAdapter<CodexState, CodexSetup> = {
   id: 'codex',
   scrubEnv: ['CODEX_THREAD_ID', 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE'],
   createState: () => ({ usage: new CodexUsageReader(), tools: new Map(), pending: new Set() }),
-  prepare: ({ dataDir, mcpScript }) => ({ hook: writeCodexHook(dataDir), mcpScript }),
+  prepare: ({ dataDir, mcpScript, codexArgs }) => ({ hook: writeCodexHook(dataDir), mcpScript, args: codexArgs }),
   launch({ h, args, prompt, resumeSessionId, setup }) {
     // Resumed too: Codex resumes on whatever its config says now, not on the model the session ran on.
-    args = codexModelArgs(args, h.info.model, h.info.effort);
+    // --agent-args, then --codex-args, then the Yolo box: one bypass flag, however many of them ask for it.
+    args = withCodexArgs(args, setup.args ?? []);
     // Yolo goes on before `resume` too: a resumed session asks again unless it's told not to.
     args = withYolo(args, 'codex', h.info.yolo);
-    args.push(...codexHookArgs(setup.hook), ...(setup.mcpScript ? codexMcpArgs(setup.mcpScript) : []), '--no-alt-screen');
+    // The worker's own model replaces a --model in --codex-args as it does one in --agent-args.
+    args = codexModelArgs(args, h.info.model, h.info.effort);
+    args.push(...codexHookArgs(setup.hook), ...(setup.mcpScript ? codexMcpArgs(setup.mcpScript) : []));
+    if (!hasCodexSwitch(args, '--no-alt-screen')) args.push('--no-alt-screen');
     if (resumeSessionId) args.push('resume', resumeSessionId);
     if (prompt) args.push('--', prompt);
     tracker(h.state).clear();

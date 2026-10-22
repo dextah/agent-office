@@ -35,6 +35,8 @@ export interface Config {
   markClaimed(): void;
   agentCmd: string;
   agentArgs: string[];
+  /** --codex-args / AGENT_OFFICE_CODEX_ARGS: extra args for every Codex worker, default agent or not (see codex-args.ts). */
+  codexArgs: string[];
   /** The DSH profile a DeepSeek Harness worker boots (`--dsh-profile`, default "acp"). */
   dshProfile: string;
   tls?: { cert: string; key: string };
@@ -128,6 +130,9 @@ Options:
       --agent-args <str>  Extra args for the configured agent, e.g. "--model opus"
                           Workers can also select Claude Code, OpenCode, Codex, Grok,
                           Muse or DeepSeek Harness in the UI
+      --codex-args <str>  Extra args for every Codex worker, whichever agent is
+                          the default, e.g. "--yolo" to bypass Codex's approvals
+                          and sandbox (env AGENT_OFFICE_CODEX_ARGS)
       --dsh-profile <n>   DeepSeek Harness profile for its workers, over the ACP
                           server (default "acp", env AGENT_OFFICE_DSH_PROFILE)
       --tls-cert <file>   Serve HTTPS with this certificate (PEM)
@@ -227,6 +232,7 @@ export function loadConfig(argv: string[]): Config {
   let password = process.env.AGENT_OFFICE_PASSWORD || '';
   let agentCmd = process.env.AGENT_OFFICE_AGENT || 'claude';
   let agentArgs: string[] = splitArgs(process.env.AGENT_OFFICE_AGENT_ARGS || '');
+  let codexArgs: string[] = splitArgs(process.env.AGENT_OFFICE_CODEX_ARGS || '');
   let dshProfile = process.env.AGENT_OFFICE_DSH_PROFILE || 'acp';
   let tlsCert = '';
   let tlsKey = '';
@@ -270,6 +276,10 @@ export function loadConfig(argv: string[]): Config {
         // Its value is flags itself ("--model opus"), so a leading -- doesn't mean the value is missing.
         if (argv[i + 1] === undefined) takeValue(argv, i, a);
         agentArgs = splitArgs(argv[++i]);
+        break;
+      case '--codex-args':
+        if (argv[i + 1] === undefined) takeValue(argv, i, a);
+        codexArgs = splitArgs(argv[++i]);
         break;
       case '--dsh-profile':
         dshProfile = takeValue(argv, i++, a);
@@ -449,6 +459,7 @@ export function loadConfig(argv: string[]): Config {
     },
     agentCmd,
     agentArgs,
+    codexArgs,
     dshProfile: dshProfile.trim() || 'acp',
     tls,
     trustProxy,

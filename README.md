@@ -86,6 +86,7 @@ agent-office ~/code/my-project              # use a project you already have as 
 agent-office --password 'correct horse'     # choose the password
 agent-office --port 4700
 agent-office --agent pi                     # default agent: claude, codex, opencode, grok, muse, dsh, pi or cursor-agent
+agent-office --codex-args --yolo            # Codex workers skip approvals and sandbox, like the Yolo box, whatever the default agent
 agent-office --no-open                      # print the sign-in link instead of opening a browser
 agent-office setup                          # the first-start walkthrough again (office stopped)
 ```

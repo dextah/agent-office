@@ -677,6 +677,46 @@ test('Codex workers preserve native approvals, follow authenticated root hooks, 
   assert.equal(restored.get(worker.id)?.status, 'idle');
 });
 
+test('--codex-args reach a Codex worker hired while the default agent is another, and its resume', async (t) => {
+  const f = fixture();
+  isolateProviderEnvironment(f, t);
+  const oldLog = process.env.FAKE_AGENT_LOG;
+  process.env.FAKE_AGENT_LOG = f.log;
+  t.after(() => { if (oldLog === undefined) delete process.env.FAKE_AGENT_LOG; else process.env.FAKE_AGENT_LOG = oldLog; f.close(); });
+  const make = () => new WorkerManager(f.root, f.data, f.claude, ['--claude-only'], { url: 'http://127.0.0.1:1', token: '' }, events([]), ledger(f.data), undefined, undefined, undefined, { codexArgs: ['--yolo'] });
+  const workers = make();
+  t.after(() => workers.shutdown());
+  const worker = workers.spawn('desk-1', 'test', 'fix it', false, 'agent', 'codex');
+  assert.notEqual(typeof worker, 'string'); if (typeof worker === 'string') return;
+  const first = (await waitFor(f.read, x => x.some(r => r.kind === 'codex'))).find(r => r.kind === 'codex')!;
+  assert.equal(first.args[0], '--yolo');
+  assert.equal(first.args.includes('--claude-only'), false);
+  assert.equal(workers.handleCodexHook(worker.id, first.env.hookToken!, 'SessionStart', { session_id: 'codex-root', source: 'startup' }), true);
+  workers.shutdown();
+  const restored = make();
+  t.after(() => restored.shutdown());
+  // Wakes the workers from before the restart (see WorkerManager.start).
+  await restored.start();
+  const next = (await waitFor(f.read, x => x.filter(r => r.kind === 'codex' && !r.stdin).length >= 2)).filter(r => r.kind === 'codex' && !r.stdin).at(-1)!;
+  assert.equal(next.args[0], '--yolo');
+  assert.deepEqual(next.args.slice(-2), ['resume', 'codex-root']);
+});
+
+test('a Codex worker hired in yolo with --codex-args --yolo and an approval policy gets one bypass flag', async (t) => {
+  const f = fixture();
+  isolateProviderEnvironment(f, t);
+  const oldLog = process.env.FAKE_AGENT_LOG;
+  process.env.FAKE_AGENT_LOG = f.log;
+  t.after(() => { if (oldLog === undefined) delete process.env.FAKE_AGENT_LOG; else process.env.FAKE_AGENT_LOG = oldLog; f.close(); });
+  const workers = new WorkerManager(f.root, f.data, f.codex, ['-a', 'on-request'], { url: 'http://127.0.0.1:1', token: '' }, events([]), ledger(f.data), undefined, undefined, undefined, { codexArgs: ['--yolo'] });
+  t.after(() => workers.shutdown());
+  const worker = workers.spawn('desk-1', 'test', 'fix it', false, 'agent', 'codex', undefined, undefined, undefined, undefined, [], undefined, true);
+  assert.notEqual(typeof worker, 'string'); if (typeof worker === 'string') return;
+  const first = (await waitFor(f.read, x => x.some(r => r.kind === 'codex'))).find(r => r.kind === 'codex')!;
+  assert.equal(first.args.filter(a => a === '--yolo' || a === '--dangerously-bypass-approvals-and-sandbox').length, 1);
+  assert.equal(first.args.includes('-a') || first.args.includes('on-request'), false);
+});
+
 test('a Codex board agent stops needing input when the permission tool finishes without a matching prompt id', async (t) => {
   const f = fixture();
   isolateProviderEnvironment(f, t);
