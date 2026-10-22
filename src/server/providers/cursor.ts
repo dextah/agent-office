@@ -5,6 +5,7 @@
 // as working until it's answered.
 import { addCursorHooks, cursorBlocked, normalizeCursorHook, removeCursorHooks, withoutCursorLaunchArgs, writeCursorHook } from '../cursor.js';
 import { reduceLifecycle } from '../workers/lifecycle.js';
+import { withYolo } from '../yolo.js';
 import type { ProviderAdapter } from './types.js';
 
 interface CursorSetup {
@@ -20,8 +21,10 @@ export const cursor: ProviderAdapter<undefined, CursorSetup> = {
   launch({ h: { info }, args, prompt, resumeSessionId, cwd, setup }) {
     args = withoutCursorLaunchArgs(args);
     addCursorHooks(cwd, setup.hook, info.id);
-    // The office made this folder for it. Cursor's own permission prompts stay as they are.
+    // The office made this folder for it. Cursor's own permission prompts stay as they are, unless
+    // the worker was hired in yolo: then --force, which --agent-args can't give it (see withoutCursorLaunchArgs).
     args.push('--trust');
+    args = withYolo(args, 'cursor', info.yolo);
     // Its chat id is the first one its hooks name. A resumed chat keeps the model it had.
     if (resumeSessionId) args.push(`--resume=${resumeSessionId}`);
     else if (info.model) args.push('--model', info.model);

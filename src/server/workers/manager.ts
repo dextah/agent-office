@@ -4,13 +4,13 @@ import type { AgentChoice, AgentEffort, AgentProvider, TerminalHit, WorkerInfo, 
 import { AGENT_PROVIDERS, takesEffort, takesModel } from '../../shared/providers.js';
 import { Worktrees, workspaceOf, type WorktreeCleanup, type WorktreeState } from '../worktrees.js';
 import { DESK_BY_ID, STATION_AGENT, deskBuilt } from '../../shared/layout.js';
-import { stationBrief } from '../stations.js';
+import { stationBrief, stationChoice } from '../stations.js';
 import type { PromptSource } from '../prompts.js';
 import type { GhAs } from '../signins.js';
 import type { ServiceOwner } from '../services.js';
 import { addUsage, newTracker, scanTracker, trackerUsage, zeroUsage, type Ledger } from '../usage.js';
 import { PtyHost, SCROLLBACK, type Adopted, type Pty } from '../ptys.js';
-import { configuredProvider, providerCommand, validateWorkerEffort, validateWorkerModel } from '../agents.js';
+import { configuredProvider, providerCommand, validateWorkerEffort, validateWorkerModel, validateWorkerYolo } from '../agents.js';
 import { ScrollbackStore, searchTerminal, terminalTail } from '../history.js';
 import { DSH_PROFILE_DEFAULT } from '../dsh.js';
 import { DropStore } from '../drops.js';
@@ -219,14 +219,12 @@ export class WorkerManager {
    * (see meetings.ts), in the meeting's own worktree, which everyone at the table shares. `repos` are
    * other floors' repositories a worker in its own worktree works in too (see makeWorkspace).
    */
-  spawn(deskId: string, by: string, prompt?: string, worktree = false, kind: WorkerKind = 'agent', provider?: AgentProvider, model?: string, effort?: AgentEffort, meeting?: { id: string; worktree?: WorkerInfo['worktree'] }, owner?: string, repos: RepoSource[] = [], via?: 'herald'): WorkerInfo | string {
-    // Nobody picked (a board agent, say): the office's default worker, model and effort included.
-    if (kind === 'agent' && provider === undefined) ({ provider, model, effort } = this.officeDefault);
+  spawn(deskId: string, by: string, prompt?: string, worktree = false, kind: WorkerKind = 'agent', provider?: AgentProvider, model?: string, effort?: AgentEffort, meeting?: { id: string; worktree?: WorkerInfo['worktree'] }, owner?: string, repos: RepoSource[] = [], via?: 'herald', yolo?: boolean): WorkerInfo | string {
+    // Nobody picked (a board agent, say): the office's default worker, model, effort and yolo included.
+    if (kind === 'agent' && provider === undefined) ({ provider, model, effort, yolo } = this.officeDefault);
     const selectedProvider = kind === 'agent' ? provider : undefined;
-    const modelError = validateWorkerModel(kind, selectedProvider, model);
-    if (modelError) return modelError;
-    const effortError = validateWorkerEffort(kind, selectedProvider, effort);
-    if (effortError) return effortError;
+    const choiceError = validateWorkerModel(kind, selectedProvider, model) ?? validateWorkerEffort(kind, selectedProvider, effort) ?? validateWorkerYolo(kind, selectedProvider, yolo);
+    if (choiceError) return choiceError;
     const seat = DESK_BY_ID.get(deskId);
     if (!seat) return 'Unknown desk';
     if (!deskBuilt(seat, this.wing())) return `${seat.label} isn't built yet: expand the back office first`;
@@ -272,6 +270,7 @@ export class WorkerManager {
       provider: selectedProvider,
       model: takesModel(selectedProvider) ? model : undefined,
       effort: takesEffort(selectedProvider) ? effort : undefined,
+      ...(yolo ? { yolo: true } : {}),
       deskId,
       name: kind === 'shell' ? `${name} 🐚` : name,
       color: kind === 'shell' ? '#8d99ae' : agent ? agent.color : COLORS[Math.floor(Math.random() * COLORS.length)],
@@ -339,7 +338,8 @@ export class WorkerManager {
     if (!clean) return 'Empty prompt';
     const w = [...this.workers.values()].find((x) => x.info.deskId === deskId);
     if (!w) {
-      const info = this.spawn(deskId, by, clean, false, 'agent', undefined, undefined, undefined, undefined, owner);
+      const [provider, model, effort, yolo] = stationChoice(DESK_BY_ID.get(deskId)?.station, this.prompts, this.officeDefault);
+      const info = this.spawn(deskId, by, clean, false, 'agent', provider, model, effort, undefined, owner, [], undefined, yolo);
       return typeof info === 'string' ? info : { info, hired: true };
     }
     // Typed into the question it's asking, the prompt would answer it.

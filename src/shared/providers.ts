@@ -168,6 +168,12 @@ export interface ProviderMeta {
   effortLabel?: string;
   /** Why it has no model or effort to pick, for the hire dialog to say. */
   unpicked?: string;
+  /**
+   * Its CLI's flag for running without asking before each command or edit (the hire dialog's
+   * "Yolo" box), with the other spellings it takes, which count as it already being there, and the
+   * options it can't be given with, which are dropped while it's on. None for one without such a flag.
+   */
+  yolo?: { flag: string; aliases?: readonly string[]; conflicts?: readonly string[] };
   /** How its spend shows on a worker's card, in the workers list and in the queue (see client ui/provider.ts). */
   usage: {
     /** Tracked from its start, numbers or not: the office reads them off its session itself. */
@@ -197,6 +203,7 @@ export const PROVIDER_META: Record<AgentProvider, ProviderMeta> = {
       hint: 'The cost panel tracks each model separately.',
     },
     takesEffort: true,
+    yolo: { flag: '--dangerously-skip-permissions' },
     usage: { tracked: true, note: 'Office usage and budget track Claude Code.' },
   },
   opencode: {
@@ -231,6 +238,8 @@ export const PROVIDER_META: Record<AgentProvider, ProviderMeta> = {
       invalid: 'Use a Codex model id without whitespace (up to 128 characters).',
     },
     takesEffort: true,
+    // Codex refuses it alongside an approval policy.
+    yolo: { flag: '--dangerously-bypass-approvals-and-sandbox', aliases: ['--yolo'], conflicts: ['-a', '--ask-for-approval'] },
     usage: {
       reports: true,
       noCost: true,
@@ -269,6 +278,7 @@ export const PROVIDER_META: Record<AgentProvider, ProviderMeta> = {
       invalid: 'Use a Muse model id without whitespace or control characters (up to 128 characters).',
     },
     takesEffort: true,
+    yolo: { flag: '--yolo' },
     usage: { note: 'Muse spend is not metered by the office; token totals stay in the worker terminal.' },
   },
   dsh: {
@@ -318,6 +328,7 @@ export const PROVIDER_META: Record<AgentProvider, ProviderMeta> = {
       hint: 'Optional model id; suggestions come from `cursor-agent models` once Cursor is signed in on the office machine. An effort goes in brackets after it: model[effort=high].',
       invalid: 'Use a Cursor model id: letters, digits and . _ -, with any overrides in brackets, like model[effort=high] (up to 128 characters).',
     },
+    yolo: { flag: '--force', aliases: ['-f', '--yolo'] },
     usage: { note: 'Cursor uses the Cursor CLI login on the office machine. Usage and cost stay in its terminal and your Cursor account; the office does not meter them.' },
   },
   custom: {
@@ -343,6 +354,11 @@ export function takesEffort(provider: unknown): boolean {
   return !!providerMeta(provider)?.takesEffort;
 }
 
+/** Whether a worker on `provider` can run in yolo, skipping its approval prompts. */
+export function takesYolo(provider: unknown): boolean {
+  return !!providerMeta(provider)?.yolo;
+}
+
 /** A saved model, when `provider` takes that one; for what workers.json or the queue kept, which may be from anywhere. */
 export function savedModel(provider: unknown, model: unknown): string | undefined {
   return providerMeta(provider)?.validModel?.(model) ? (model as string) : undefined;
@@ -351,6 +367,11 @@ export function savedModel(provider: unknown, model: unknown): string | undefine
 /** A saved reasoning effort, when `provider` takes one. */
 export function savedEffort(provider: unknown, effort: unknown): AgentEffort | undefined {
   return takesEffort(provider) && isAgentEffort(effort) ? effort : undefined;
+}
+
+/** A saved yolo, when `provider` has one: true, or undefined. */
+export function savedYolo(provider: unknown, yolo: unknown): true | undefined {
+  return yolo === true && takesYolo(provider) ? true : undefined;
 }
 
 /** "a, b or c": the names of the providers that `has` holds for, in the table's order. */

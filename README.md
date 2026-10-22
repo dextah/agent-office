@@ -33,7 +33,7 @@ curl -fsSL https://raw.githubusercontent.com/AgentSystemLabs/agent-office/main/i
 ## What it is
 
 - **A floor per project.** Ride the elevator, pick one of your GitHub repos, and the office clones it (showing how far along it is) and opens a floor for it. Every worker, board and queue on that floor works in that checkout.
-- **Workers at desks.** Walk up to an empty desk, press **E**, and pick Claude Code, Codex, OpenCode, Grok, Muse, DeepSeek Harness, Pi or Cursor, each with its model and reasoning effort. The agent's live terminal shows on its laptop, and anyone can open it and type.
+- **Workers at desks.** Walk up to an empty desk, press **E**, and pick Claude Code, Codex, OpenCode, Grok, Muse, DeepSeek Harness, Pi or Cursor, each with its model and reasoning effort, and, for Claude Code, Codex, Cursor and Muse, **Yolo (skip approvals)** ([docs/agents.md](docs/agents.md#yolo-skip-approvals)). Admins pick the default worker, and what the Issues and PR agents run on, in ⚙️ Settings → **🤖 Workers**. The agent's live terminal shows on its laptop, and anyone can open it and type.
 - **Talk instead of typing.** Hold **Ctrl+Space** (or the **🎤**) in a worker's terminal or a prompt box and say what you want: it's typed in for you to send. Your browser does the listening, so there's nothing to install.
 - **You can't miss who needs you.** A worker that stops to ask you something lights a red beacon over its desk, puts a banner on your screen saying who and what for, and sounds an alarm. One that has finished jumps up and down and dings. Press **N** to go straight to whoever is waiting.
 - **From your phone, too.** `/lite` is the office in 2D: every worker and what it's waiting on, its terminal with the keys a phone keyboard lacks, and the boards. The 3D office offers it on a phone or a slow computer.
@@ -90,7 +90,7 @@ agent-office --no-open                      # print the sign-in link instead of 
 agent-office setup                          # the first-start walkthrough again (office stopped)
 ```
 
-Every option is in [docs/configuration.md](docs/configuration.md). Choosing models and providers per worker is in [docs/agents.md](docs/agents.md).
+Every option is in [docs/configuration.md](docs/configuration.md). Choosing models and providers per worker, for the board agents, and yolo, is in [docs/agents.md](docs/agents.md), with no restart or CLI flag needed.
 
 **Codex on Windows:** install and sign in to Codex on the machine running the office, then choose **Codex** when hiring (or start with `--agent codex`). Office hooks use PowerShell quoting on Windows. Open the worker's terminal and review/trust the generated commands in `/hooks`; until trusted, status tracking cannot start. After updating a source checkout, run `npm run build` and restart the office. Existing Codex processes keep their old hook commands: exit Codex with `/quit`, then press **R** at its desk, and review changed hooks again. See [Codex troubleshooting](docs/agents.md#codex-on-windows-and-hook-troubleshooting).
 

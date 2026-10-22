@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { AGENT_PROVIDERS, PROVIDER_META, isAgentEffort, providerMeta, providerNames, type AgentProvider } from '../shared/providers.js';
+import { AGENT_PROVIDERS, PROVIDER_META, isAgentEffort, providerMeta, providerNames, takesYolo, type AgentProvider } from '../shared/providers.js';
 
 /**
  * Finds the provider represented by the configured executable.  Keep this deliberately based on
@@ -36,4 +36,12 @@ export function validateWorkerEffort(kind: 'agent' | 'shell', provider: AgentPro
   if (kind === 'shell') return 'Shell workers do not have a reasoning effort';
   if (!providerMeta(provider)?.takesEffort) return `Reasoning effort can only be selected for ${providerNames((m) => !!m.takesEffort)} workers`;
   return isAgentEffort(effort) ? undefined : 'Invalid effort (expected low, medium, high, xhigh or max)';
+}
+
+/** Why a worker can't run in yolo, if it can't: a shell, or a provider whose CLI has no such flag. */
+export function validateWorkerYolo(kind: 'agent' | 'shell', provider: AgentProvider | undefined, yolo: unknown): string | undefined {
+  if (yolo === undefined || yolo === false) return undefined;
+  if (yolo !== true) return 'Invalid yolo (expected true or false)';
+  if (kind === 'shell') return 'Shell workers have no approvals to skip';
+  return takesYolo(provider) ? undefined : `Yolo can only be turned on for ${providerNames((m) => !!m.yolo)} workers`;
 }

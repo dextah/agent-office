@@ -33,7 +33,7 @@ export interface AskOptions {
   /** Other floors' projects a new worker in its own worktree can work in too (see WorkerInfo.repos). */
   repoOptions?: { id: string; name: string }[];
   /** `to` is a worker id, or null for a new worker. */
-  onSubmit(prompt: string, to: string | null, worktree: boolean, provider?: AgentProvider, model?: string, effort?: AgentEffort, repos?: string[]): void;
+  onSubmit(prompt: string, to: string | null, worktree: boolean, provider?: AgentProvider, model?: string, effort?: AgentEffort, repos?: string[], yolo?: boolean): void;
 }
 
 // Shared with the hire prompt, so the choice sticks either way.
@@ -51,7 +51,7 @@ export function openAsk(opts: AskOptions) {
   }
   const wtRow = h('label.ask-wt', { for: 'ask-wt', title: 'Isolate the new worker on its own branch so parallel workers never collide' }, wtBox, '🌿 Work in its own git worktree & branch');
   const repos = repoPicker(opts.worktreeOption ? opts.repoOptions : undefined, wtBox);
-  const provider: ProviderPicker | null = opts.providerOption ? providerPicker(store.project, 'ask-provider') : null;
+  const provider: ProviderPicker | null = opts.providerOption ? providerPicker(store.project, 'ask-provider', 'Worker', { yolo: true }) : null;
   const submit = h('button.btn.primary', { type: 'submit' });
 
   const choices = h('div.seg.ask-to');
@@ -115,6 +115,7 @@ export function openAsk(opts: AskOptions) {
       !to ? provider?.model() : undefined,
       !to ? provider?.effort() : undefined,
       !to && opts.worktreeOption && wtBox.checked ? repos.value() : undefined,
+      !to ? provider?.yolo() : undefined,
     );
   };
   form.addEventListener('submit', (e) => {

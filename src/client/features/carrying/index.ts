@@ -28,7 +28,7 @@ export interface CarryingDeps {
   /** Drops the ball, if it's in your hands (see features/basketball). */
   dropBall(): void;
   /** Hires a worker at `deskId` (see hire in features/workers/actions.ts). */
-  hire(deskId: string, prompt?: string, worktree?: boolean, provider?: AgentProvider, model?: string, effort?: AgentEffort, issue?: number, repos?: string[], via?: 'herald'): void;
+  hire(deskId: string, prompt?: string, worktree?: boolean, provider?: AgentProvider, model?: string, effort?: AgentEffort, issue?: number, repos?: string[], via?: 'herald', yolo?: boolean): void;
   /** The seat the herald sends a new worker to (see heraldSeat in features/workers/views.ts). */
   heraldSeat(): string | undefined;
   /** Seats you've just sent a worker out to from the herald, so a second goes elsewhere. */
@@ -113,9 +113,9 @@ export function installCarrying(ctx: Ctx, deps: CarryingDeps) {
       if (!deskId) toast('Every seat at the tables is taken', 'warn');
       else if (hiringPaused()) toast('💸 Budget spent — hiring resumes tomorrow', 'warn');
       else if (!deps.officeIsFull()) {
-        const { provider, model, effort } = officeChoice(store.project);
+        const { provider, model, effort, yolo } = officeChoice(store.project);
         deps.heraldHires.set(deskId, { floor: store.floor, at: performance.now() });
-        deps.hire(deskId, prompt, !!store.project?.branch && worktreePref(), provider, model, effort, card.issue, undefined, 'herald');
+        deps.hire(deskId, prompt, !!store.project?.branch && worktreePref(), provider, model, effort, card.issue, undefined, 'herald', yolo);
         putDown();
       }
       return true;
@@ -128,8 +128,9 @@ export function installCarrying(ctx: Ctx, deps: CarryingDeps) {
       ctx.net.send({ t: 'worker.prompt', workerId: w.id, prompt, issue: card.issue });
       putDown();
     } else if (!deps.officeIsFull()) {
-      const { provider, model, effort } = officeChoice(store.project);
-      deps.hire(it.deskId, prompt, !!store.project?.branch && worktreePref(), provider, model, effort, card.issue);
+      // A card dropped on a desk hires the default worker, yolo and all.
+      const { provider, model, effort, yolo } = officeChoice(store.project);
+      deps.hire(it.deskId, prompt, !!store.project?.branch && worktreePref(), provider, model, effort, card.issue, undefined, undefined, yolo);
       putDown();
     }
     return true;
