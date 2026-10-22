@@ -86,14 +86,14 @@ export class WorkerManager {
     private prompts?: PromptSource,
     /** Everyone's own sign-ins, for workers hired by an account. */
     private runAs?: RunAs,
-    /** The DSH profile a DeepSeek Harness worker boots (default "acp"). */
-    dshProfile: string = DSH_PROFILE_DEFAULT,
+    /** How providers are set up beyond their command: the DSH profile (default "acp"), --codex-args. */
+    { dshProfile = DSH_PROFILE_DEFAULT, codexArgs }: Partial<Pick<ProviderFloor, 'dshProfile' | 'codexArgs'>> = {},
   ) {
     this.defaultProvider = configuredProvider(agentCmd);
     this.trees = new Worktrees(dir);
     this.statePath = path.join(dataDir, 'workers.json');
     // bin/office-workers.js is also the office's MCP server, for the agents that take one.
-    const floor: ProviderFloor = { dataDir, mcpScript: binScript('office-workers.js'), dshProfile };
+    const floor: ProviderFloor = { dataDir, mcpScript: binScript('office-workers.js'), dshProfile, codexArgs };
     for (const p of AGENT_PROVIDERS) this.setups[p] = PROVIDERS[p].prepare?.(floor);
     this.officeBin = writeOfficeCommands(dataDir);
     this.agentPath = resolveCommand(agentCmd);

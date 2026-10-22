@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { withYolo } from '../src/server/yolo.js';
+import { hasYolo, withYolo } from '../src/server/yolo.js';
 import { validateWorkerYolo } from '../src/server/agents.js';
 import { PROVIDERS } from '../src/server/providers/index.js';
 import { claude, claudeBlocked } from '../src/server/providers/claude.js';
@@ -52,6 +52,11 @@ test('the yolo flag goes on once, ahead of the prompt, whatever --agent-args alr
   assert.deepEqual(withYolo(['--dangerously-bypass-approvals-and-sandbox'], 'codex', true), ['--dangerously-bypass-approvals-and-sandbox']);
   assert.deepEqual(withYolo(['-a', 'on-request', '--search', '--ask-for-approval=never'], 'codex', true), ['--search', '--dangerously-bypass-approvals-and-sandbox']);
   assert.deepEqual(withYolo(['-f'], 'cursor', true), ['-f']);
+  // Both of Codex's names at once is still twice: the first one stays.
+  assert.deepEqual(withYolo(['--yolo', '--search', '--dangerously-bypass-approvals-and-sandbox'], 'codex', true), ['--yolo', '--search']);
+  assert.equal(hasYolo(['--yolo'], 'codex'), true);
+  assert.equal(hasYolo(['--', '--yolo'], 'codex'), false);
+  assert.equal(hasYolo(['--yolo'], 'opencode'), false);
   // What comes after `--` is the prompt, never read as flags.
   assert.deepEqual(withYolo(['--', '--yolo'], 'codex', true), ['--dangerously-bypass-approvals-and-sandbox', '--', '--yolo']);
 });
@@ -85,7 +90,8 @@ test('a Codex worker in yolo bypasses approvals before `resume`, without doublin
   const launch = (more: Partial<WorkerInfo>, args: string[], extra: { prompt?: string; resumeSessionId?: string } = {}) =>
     codex.launch({ h: { info: info(more), state: codex.createState!() } as never, args, cwd: '.', setup: { hook: '/data/hook.cjs' }, ...extra }).args;
   const fresh = launch({ yolo: true, model: 'gpt-5.5' }, ['-a', 'on-request'], { prompt: 'fix it' });
-  assert.deepEqual(fresh.slice(0, 3), ['--model', 'gpt-5.5', '--dangerously-bypass-approvals-and-sandbox']);
+  // The box's flag goes on before the worker's model (see the Codex adapter's launch).
+  assert.deepEqual(fresh.slice(0, 3), ['--dangerously-bypass-approvals-and-sandbox', '--model', 'gpt-5.5']);
   assert.equal(fresh.includes('-a'), false);
   assert.deepEqual(fresh.slice(-2), ['--', 'fix it']);
   const resumed = launch({ yolo: true }, ['--yolo'], { resumeSessionId: 'thread-1' });

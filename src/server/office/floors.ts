@@ -73,6 +73,7 @@ export async function openFloors(ctx: Ctx, hookPort: number): Promise<FloorsOpen
     agentCmd: cfg.agentCmd,
     agentArgs: cfg.agentArgs,
     dshProfile: cfg.dshProfile,
+    codexArgs: cfg.codexArgs,
     hook: { url: `http://127.0.0.1:${hookPort}`, token: '' },
     ledger: ctx.ledger,
     capacity: ctx.machine,
