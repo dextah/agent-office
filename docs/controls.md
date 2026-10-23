@@ -27,11 +27,11 @@ Back to the [README](../README.md).
 | V | Join voice; in voice, hold to talk (you're muted when you let go) |
 | M | Mute / unmute in voice |
 | Ctrl + Space | Dictate, in a worker's terminal or a prompt box: hold it and talk, and what you said is typed in when you let go. A quick tap leaves it listening until the next tap. The **🎤** does the same |
-| Tab | The ☰ menu: every window, and what shows on screen |
+| Tab | The ☰ menu: every window, and what shows on screen (the sidebar's widgets among it) |
 | Esc | Close any window and get back to looking around. In a terminal, **Hide**, **✕** and Esc only hide the terminal; the worker keeps running |
 | Ctrl + [ | Send Esc to a terminal instead, to close a menu like Claude's `/skills` or interrupt Claude. **⎋ Esc** in the terminal's header does the same |
 
-You can also click a nearby desk to interact with it, or click a worker in the Workers panel (**🤖 Workers**, top right) to open its terminal.
+You can also click a nearby desk to interact with it, or click a worker in the Workers panel (**🤖 Workers**, top right) to open its terminal. Click a floor in the **🏢 Other floors** widget to go there. Which widgets show down the right, and in what order, is ⚙️ Settings → **🧩 Widgets**; a widget's **✕** hides it.
 
 On a phone, use the 2D view at `/lite` instead: a terminal there has a row of keys under it (**1** **2** **3**, the arrows, Enter, Tab, Esc, Ctrl+C) and a box to send a prompt. See [Features](features.md).
 

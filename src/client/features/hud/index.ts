@@ -152,7 +152,10 @@ export function installHud(ctx: Ctx, core: CoreState, parts: HudParts) {
       (s) => {
         // Switching to push to talk mutes you now; back to an open mic turns it on.
         const talkChanged = s.pushToTalk !== settings.pushToTalk;
-        Object.assign(settings, s);
+        // What shows on screen and what's pinned are the HUD's (the ✕s, the ☰ menu, Settings › Widgets
+        // change them in place), so the window's copy, from when it opened, mustn't put them back.
+        const { hud: _hud, widgetOrder: _order, pins: _pins, ...rest } = s;
+        Object.assign(settings, rest);
         saveSettings(settings);
         if (talkChanged) {
           voice.setMuted(settings.pushToTalk);

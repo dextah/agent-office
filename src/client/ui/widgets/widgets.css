@@ -1,0 +1,36 @@
+/* The sidebar's own widgets (see ui/widgets), set like the Spend and Claude limits panels. */
+.side .widget { flex: none; font-size: 12px; font-weight: 700; display: flex; flex-direction: column; gap: 4px; }
+.widget h3 { margin-bottom: 2px; }
+.widget .muted { color: var(--muted); font-weight: 600; }
+.widget .warn { color: var(--bad); }
+.widget .w-row { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; }
+.widget .w-row.muted { white-space: normal; }
+.widget .w-row .what { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.widget .w-row b { margin-left: auto; font-weight: 900; font-variant-numeric: tabular-nums; }
+.widget .w-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.widget .w-stat { display: flex; flex-direction: column; align-items: center; padding: 3px 0; border: 2px solid var(--ink); border-radius: 8px; background: #fff; }
+.widget .w-stat b { font-size: 15px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.widget .w-stat span { font-size: 11px; color: var(--muted); }
+.widget .w-stat.warn { border-color: var(--bad); }
+.widget .w-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.widget .w-chip { display: inline-flex; gap: 4px; padding: 1px 6px; border-radius: 999px; background: var(--paper-2); font-size: 11px; }
+.widget .w-chip b { font-variant-numeric: tabular-nums; }
+.floors-widget .w-floor { display: flex; align-items: center; gap: 6px; width: 100%; padding: 3px 4px; border: 0; border-radius: 8px; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.floors-widget .w-floor:hover:not(:disabled) { background: var(--paper-2); }
+.floors-widget .w-floor:disabled { cursor: default; opacity: .7; }
+.floors-widget .dot { flex: none; }
+.floors-widget .w-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.floors-widget .w-floor-stats { display: flex; gap: 6px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.floors-widget.needs-you-panel { border-color: var(--bad); }
+
+/* ⚙️ Settings › Widgets: one row each, with its switch and its place in the sidebar. */
+.widget-list { display: flex; flex-direction: column; gap: 6px; }
+.widget-pick { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 2px solid var(--ink); border-radius: 10px; background: #fff; }
+.widget-pick .wp-icon { font-size: 18px; }
+.widget-pick .wp-text { flex: 1; min-width: 0; display: flex; flex-direction: column; font-weight: 800; }
+.widget-pick .wp-text small { font-weight: 600; color: var(--muted); }
+.widget-pick .wp-move { width: 28px; height: 28px; padding: 0; justify-content: center; }
+.widget-pick .wp-move { flex: none; }
+.widget-pick .wp-toggle { flex: none; display: flex; border: 0; background: none; padding: 4px; cursor: pointer; }
+.widget-pick .wp-toggle[aria-checked=true] .switch { background: var(--good); }
+.widget-pick .wp-toggle[aria-checked=true] .switch::after { transform: translateX(14px); }
