@@ -3,6 +3,7 @@ import { store, type HudPanel, type Settings, type Topic } from '../state';
 import { waitingOnSomeone } from '../notify';
 import { DESK_BY_ID } from '../../shared/layout';
 import { $, h, openModal, type Modal } from './dom';
+import { isWidget, onWidgetsChange, setWidgetOn, sidebarWidgets, widgetOn } from './widgets/sidebar';
 
 /** One thing the ☰ menu does. Any of them can be pinned to the top bar. */
 export interface HudAction {
@@ -31,22 +32,16 @@ export interface HudAction {
   run: () => void;
 }
 
-const PANELS: { id: HudPanel; icon: string; label: string; what: string }[] = [
-  { id: 'workers', icon: '🤖', label: 'Workers', what: 'Every desk and what it’s up to' },
-  { id: 'people', icon: '👥', label: 'People', what: 'Who’s here, on which floor' },
-  { id: 'spend', icon: '💸', label: 'Spend', what: 'Today, the budget, all time' },
-  { id: 'limits', icon: '⏳', label: 'Claude limits', what: 'The plan’s 5-hour and week' },
-  { id: 'chat', icon: '💬', label: 'Chat', what: 'T opens it either way' },
-  { id: 'floor', icon: '🏢', label: 'Floor details', what: 'Branch, folder, default agent' },
+/** The panels that aren't the sidebar's widgets (those are in ui/widgets), each with its element. */
+const PANELS: { id: Exclude<HudPanel, 'workers' | 'people' | 'spend' | 'limits'>; el: string; icon: string; label: string; what: string }[] = [
+  { id: 'chat', el: 'chat', icon: '💬', label: 'Chat', what: 'T opens it either way' },
+  { id: 'floor', el: 'project-meta', icon: '🏢', label: 'Floor details', what: 'Branch, folder, default agent' },
 ];
-
-/** The element each panel is. */
-const PANEL_EL: Record<HudPanel, string> = { workers: 'workers-panel', people: 'people-panel', spend: 'spend', limits: 'limits', chat: 'chat', floor: 'project-meta' };
 
 const PIN_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M16 9V4h1a1 1 0 0 0 0-2H7a1 1 0 0 0 0 2h1v5a3 3 0 0 1-3 3v2h5.97v7l1 1 1-1v-7H19v-2a3 3 0 0 1-3-3z"/></svg>';
 
 /** The ✕ in a panel's heading, which hides it until you turn it back on from the ☰ menu. */
-export function panelHide(id: HudPanel): HTMLElement {
+export function panelHide(id: string): HTMLElement {
   return h('button.panel-x', { type: 'button', 'data-hud': id, 'aria-label': 'Hide', title: 'Hide (☰ brings it back)' }, '✕');
 }
 
@@ -74,10 +69,14 @@ export function mountHud(actions: HudAction[], settings: Settings, save: () => v
   menuBtn.addEventListener('click', () => toggleMenu());
 
   function applyPanels() {
-    for (const p of PANELS) $(PANEL_EL[p.id]).classList.toggle('hud-off', !settings.hud[p.id]);
+    for (const p of PANELS) $(p.el).classList.toggle('hud-off', !settings.hud[p.id]);
   }
 
-  function setPanel(id: HudPanel, on: boolean) {
+  const panelOn = (id: string) => (isWidget(id) ? widgetOn(id) : !!settings.hud[id]);
+
+  /** A sidebar widget's is the sidebar's to change (it tells us, see onWidgetsChange below). */
+  function setPanel(id: string, on: boolean) {
+    if (isWidget(id)) return setWidgetOn(id, on);
     settings.hud = { ...settings.hud, [id]: on };
     save();
     applyPanels();
@@ -113,11 +112,11 @@ export function mountHud(actions: HudAction[], settings: Settings, save: () => v
   }
 
   /** Shows or hides a panel, with what it's about at a glance. */
-  function panelChip(id: HudPanel, icon: string, label: string, n: number, title: string): HTMLElement {
-    const on = settings.hud[id];
+  function panelChip(id: string, icon: string, label: string, n: number, title: string): HTMLElement {
+    const on = panelOn(id);
     return h(
       'button.btn.dock-btn.dock-panel',
-      { type: 'button', 'aria-pressed': String(on), title: `${title}${on ? ' · click to hide' : ' · click to show'}`, onclick: () => setPanel(id, !settings.hud[id]) },
+      { type: 'button', 'aria-pressed': String(on), title: `${title}${on ? ' · click to hide' : ' · click to show'}`, onclick: () => setPanel(id, !panelOn(id)) },
       icon,
       h('span.lbl', {}, label),
       n ? h('span.n', {}, String(n)) : null,
@@ -127,7 +126,7 @@ export function mountHud(actions: HudAction[], settings: Settings, save: () => v
   function render() {
     const items: HTMLElement[] = actions.filter((a) => offered(a) && (pinned(a) || a.status?.())).map(dockButton);
     const people = store.peers.size;
-    if (people > 1 || settings.hud.people) items.push(panelChip('people', '👥', 'People', people, `${people} in the office`));
+    if (people > 1 || panelOn('people')) items.push(panelChip('people', '👥', 'People', people, `${people} in the office`));
     const workers = [...store.workers.values()];
     // Hired onto desks, bean bags and the meeting room's table; the board agents at their kiosks don't count.
     const hired = workers.filter((w) => !DESK_BY_ID.get(w.deskId)?.station).length;
@@ -180,7 +179,7 @@ export function mountHud(actions: HudAction[], settings: Settings, save: () => v
       });
       return h('div.menu-row', {}, item, pin);
     };
-    const toggle = (p: (typeof PANELS)[number]) => {
+    const toggle = (p: { id: string; icon: string; label: string; what: string }) => {
       const item = h(
         'button.menu-item.menu-toggle',
         { type: 'button', role: 'menuitemcheckbox' },
@@ -188,10 +187,10 @@ export function mountHud(actions: HudAction[], settings: Settings, save: () => v
         h('span.mi-label', {}, p.label, h('small', {}, p.what)),
         h('span.switch', { 'aria-hidden': 'true' }),
       );
-      const paint = () => item.setAttribute('aria-checked', String(settings.hud[p.id]));
+      const paint = () => item.setAttribute('aria-checked', String(panelOn(p.id)));
       paint();
       item.addEventListener('click', () => {
-        setPanel(p.id, !settings.hud[p.id]);
+        setPanel(p.id, !panelOn(p.id));
         paint();
       });
       return item;
@@ -202,7 +201,7 @@ export function mountHud(actions: HudAction[], settings: Settings, save: () => v
       'div.hud-menu',
       { role: 'menu', 'aria-label': 'Menu' },
       h('div.menu-col', {}, ...section('Open', rows('Open')), ...section('Together', rows('Together'))),
-      h('div.menu-col', {}, ...section('Show on screen', PANELS.map(toggle)), ...section('Office', rows('Office'))),
+      h('div.menu-col', {}, ...section('Show on screen', [...sidebarWidgets().map((w) => ({ id: w.id, icon: w.icon, label: w.title, what: w.what })), ...PANELS].map(toggle)), ...section('Office', rows('Office'))),
       h('p.menu-foot', {}, 'Pin what you use most to keep it on the top bar. ', h('kbd', {}, 'Tab'), ' opens and closes this menu.'),
     );
     // On the window, so the keys work wherever focus is while the menu is up.
@@ -274,11 +273,12 @@ export function mountHud(actions: HudAction[], settings: Settings, save: () => v
       const x = (e.target as HTMLElement).closest<HTMLElement>('.panel-x');
       if (!x) return;
       e.stopPropagation();
-      setPanel(x.dataset.hud as HudPanel, false);
+      setPanel(x.dataset.hud!, false);
     },
     true,
   );
   for (const t of ['workers', 'peers', 'issues', 'pulls', 'services', 'queue', 'meeting', 'upgrade', 'me', 'floors', 'signins'] as Topic[]) store.on(t, render);
+  onWidgetsChange(render);
   applyPanels();
   render();
   return { refresh: render, toggleMenu };

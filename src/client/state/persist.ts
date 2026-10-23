@@ -36,8 +36,10 @@ export function saveProfile(p: Omit<Profile, 'look'> & { look?: Look }) {
 
 export type ViewMode = 'first' | 'third';
 
-/** The panels you can show or hide on screen, from the ☰ menu. */
+/** The panels you can show or hide on screen, from the ☰ menu. The sidebar's widgets (ui/widgets) are kept beside them by their own ids. */
 export type HudPanel = 'workers' | 'people' | 'spend' | 'limits' | 'chat' | 'floor';
+/** What can be kept for a sidebar widget: its id, as its module registers it. */
+const WIDGET_ID = /^[a-z][a-z0-9-]{0,31}$/;
 /** Out of the way by default: only the chat shows until you turn the rest on. */
 export const HUD_DEFAULTS: Record<HudPanel, boolean> = { workers: false, people: false, spend: false, limits: false, chat: true, floor: false };
 
@@ -61,8 +63,10 @@ export interface Settings {
   notify: boolean;
   /** The alarm when a worker stops to ask you something: not at all, once, or again every half minute until someone's at its terminal. */
   needsYouSound: NeedsYouSound;
-  /** Which panels show on screen. */
-  hud: Record<HudPanel, boolean>;
+  /** Which panels show on screen, and which sidebar widgets (a widget not in it shows if it does by default). */
+  hud: Record<HudPanel, boolean> & { [widget: string]: boolean | undefined };
+  /** The sidebar widgets in the order you put them, by id; ones not in it follow in the order they register. */
+  widgetOrder: string[];
   /** The ☰ menu's actions you pinned to the top bar, by id. */
   pins: string[];
 }
@@ -127,7 +131,7 @@ export function rememberSpot(s: Spot) {
 }
 
 export function loadSettings(): Settings {
-  const s: Settings = { view: 'first', volume: 0.7, muted: false, music: 0.5, musicMuted: false, pageTurns: true, pushToTalk: false, notify: true, needsYouSound: 'once', hud: { ...HUD_DEFAULTS }, pins: [] };
+  const s: Settings = { view: 'first', volume: 0.7, muted: false, music: 0.5, musicMuted: false, pageTurns: true, pushToTalk: false, notify: true, needsYouSound: 'once', hud: { ...HUD_DEFAULTS }, widgetOrder: [], pins: [] };
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? 'null');
     if (saved?.view === 'first' || saved?.view === 'third') s.view = saved.view;
@@ -140,6 +144,11 @@ export function loadSettings(): Settings {
     if (typeof saved?.notify === 'boolean') s.notify = saved.notify;
     if (NEEDS_YOU_SOUNDS.includes(saved?.needsYouSound)) s.needsYouSound = saved.needsYouSound;
     for (const k of Object.keys(s.hud) as HudPanel[]) if (typeof saved?.hud?.[k] === 'boolean') s.hud[k] = saved.hud[k];
+    if (saved?.hud && typeof saved.hud === 'object') {
+      const widgets = Object.entries(saved.hud).filter(([k, v]) => !(k in HUD_DEFAULTS) && WIDGET_ID.test(k) && typeof v === 'boolean').slice(0, 50);
+      for (const [k, v] of widgets) s.hud[k] = v as boolean;
+    }
+    if (Array.isArray(saved?.widgetOrder)) s.widgetOrder = [...new Set(saved.widgetOrder.filter((id: unknown): id is string => typeof id === 'string' && WIDGET_ID.test(id)))].slice(0, 50) as string[];
     if (Array.isArray(saved?.pins)) s.pins = saved.pins.filter((p: unknown): p is string => typeof p === 'string').slice(0, 30);
   } catch {
     // storage blocked

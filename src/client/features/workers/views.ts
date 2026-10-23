@@ -2,7 +2,7 @@
  * The workers as you see them: at their desks with their laptops (or up and about in the castle),
  * walking in to a meeting, packing up when they're sent home (or marched down to the dungeon), how
  * worn out they look, and the seats: which are free, the bean bags, the back office built out. Also
- * the building dressed up for a holiday, and what the workers have spent.
+ * the building dressed up for a holiday. What they've spent is the sidebar's (features/widgets).
  */
 import * as THREE from 'three';
 import { FLOOR, WING, beanbagsOut, deskBuilt, vacantSeats, wingMinZ, wingRowZ } from '../../../shared/layout';
@@ -20,12 +20,9 @@ import { waitingInOrder } from '../../nextup';
 import { waitingOnSomeone } from '../../notify';
 import { renderTitle } from '../../shared/title';
 import { store } from '../../state';
-import { $ } from '../../ui/dom';
 import { openExpand } from '../../ui/floorplan';
 import { renderWorkers } from '../../ui/workers-panel';
-import { renderLimits } from '../../ui/limits';
 import { engineLabel } from '../../ui/provider';
-import { renderUsage } from '../../ui/usage';
 import { Worker } from '../../world/character';
 import { Drifters } from './adrift';
 import { Jail } from './jail';
@@ -369,7 +366,6 @@ export function installWorkerViews(ctx: Ctx, core: CoreState, parts: WorkerViews
   };
   store.on('pulls', paintPrs);
   store.on('queue', paintPrs);
-  store.on('workers', renderUsage);
 
   /**
    * Dresses the building up for the holiday it's set to (⚙️ Settings), or takes it all down: the sky and
@@ -388,11 +384,6 @@ export function installWorkerViews(ctx: Ctx, core: CoreState, parts: WorkerViews
     ctx.world().herald?.person.setCostume(theme);
   }
   store.on('theme', dressUp);
-  store.on('usage', renderUsage);
-  store.on('limits', renderLimits);
-  // The reset countdowns tick down between reads.
-  setInterval(renderLimits, 30_000);
-  $('limits').addEventListener('click', () => net.send({ t: 'limits.refresh' }));
 
   /** Where confetti comes from over a desk: above the worker's head. */
   function burstOver(deskId: string, n: number) {
