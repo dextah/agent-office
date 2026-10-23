@@ -22,6 +22,10 @@ if (argv[0] === 'tunnel') {
   const { tunnelCommand } = await import('./tunnel/index.js');
   process.exit(await tunnelCommand(argv.slice(1)));
 }
+if (argv[0] === 'tmux') {
+  const { tmuxCommand } = await import('./tmux.js');
+  process.exit(tmuxCommand(argv.slice(1)));
+}
 
 const cfg = loadConfig(argv);
 await ensureSelfSigned(cfg);
