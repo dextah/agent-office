@@ -386,6 +386,8 @@ deploy/coolify.sh ssh 'node /opt/agent-office/bin/agent-office.js accounts invit
 
 The full list is in [docs/controls.md](docs/controls.md).
 
+In Claude and Codex terminals, submitting a reply with **Enter** (or interrupting with **Ctrl+C**) clears the current input alert; a new question raises it again. On Windows, Enter waits briefly after a paste so it submits the prompt instead of joining the pasted text. This also applies to the PR and queue agents.
+
 ## Development
 
 ```bash

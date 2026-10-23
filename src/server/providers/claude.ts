@@ -236,6 +236,7 @@ export const claude: ProviderAdapter<undefined, ClaudeSetup> = {
   // Resuming a conversation Claude no longer has ("No conversation found") exits before Claude ever starts.
   freshIfResumeFails: true,
   hook: { strictJson: false, handle: claudeHook },
+  inputSubmitted: (h) => answered(h),
   // OSC 9;4 progress (Claude Code emits it): 0 = idle, anything else = busy. Catches Esc-cancel,
   // which fires no Stop hook.
   screen: { progress: true, blocked: claudeBlocked },

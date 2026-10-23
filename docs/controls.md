@@ -37,6 +37,10 @@ On a phone, use the 2D view at `/lite` instead: a terminal there has a row of ke
 
 ## In a terminal
 
+For Claude and Codex, **Enter** submits a reply and clears the current “needs input” alert without waiting for the approved tool to finish. **Ctrl+C** also clears that wait while the interrupt is delivered. Typing, moving through choices, and pasting alone keep the wait active. A new question or permission hook raises a fresh alert; trust and login screens stay flagged until the provider reports that they are ready.
+
+On a Windows office server, Enter after a paste waits for a short pause (up to half a second) before reaching the worker. This keeps it outside the CLI’s paste burst, where it could otherwise become another newline. PR and queue agent terminals, and prompts sent through **Ask agent**, use the same ordered input path.
+
 The prompt edits the way it does in your own terminal (iTerm2's *Natural Text Editing*, or VS Code's), in Claude Code, Codex, OpenCode and a shell alike:
 
 | Key | Action |

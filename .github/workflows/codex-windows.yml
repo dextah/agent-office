@@ -6,6 +6,7 @@ on:
       - 'src/server/**'
       - 'src/shared/**'
       - 'tests/codex*.test.ts'
+      - 'tests/worker-input.test.ts'
       - 'package*.json'
       - '.github/workflows/codex-windows.yml'
   workflow_dispatch:
@@ -26,4 +27,4 @@ jobs:
       - run: npm run typecheck
       # Runs the generated commands through Windows PowerShell and a local authenticated bridge.
       # The Codex CLI and API credentials are not needed.
-      - run: node --import tsx --test tests/codex.test.ts tests/codex-usage.test.ts tests/codex-hook-shell.test.ts tests/codex-hook-transport.test.ts
+      - run: node --import tsx --test tests/codex.test.ts tests/codex-usage.test.ts tests/codex-hook-shell.test.ts tests/codex-hook-transport.test.ts tests/worker-input.test.ts
