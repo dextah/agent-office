@@ -8,6 +8,12 @@ The office keeps its data in `~/agent-office` (`--home` or `AGENT_OFFICE_HOME` t
 
 Already have a checkout? Pick its repository anyway: a checkout of it that's already where the workspace folder would clone it is used as it is. You can still start the office in a project, `agent-office ~/code/my-project`: that project becomes a floor, and the office keeps its data in `~/code/my-project/.agent-office` as it did before there were floors. An office that already ran in a project carries on in it when you start `agent-office` there again. An admin can take that project off the building in the elevator like any other floor.
 
+## tmux sessions
+
+Run `agent-office tmux` to start or rejoin the same office after an SSH/terminal disconnect. Detach with **Ctrl+B, D**; to launch without attaching use `agent-office tmux --detached`. Check with `agent-office tmux --status`. For several offices, give each a distinct `--session` and `--port` when starting it. In an already-attached tmux client, this command switches to the office session rather than nesting another tmux client. It does not attach to an existing office launched without tmux.
+
+Regular `agent-office` behavior is unchanged. This option does not turn worker terminals into separate tmux panes or change the worker PTY host's restart/orphan timeouts. Closing Agent Office with Ctrl+C still stops workers; detach with Ctrl+B, D to leave them running. On Windows use WSL2 and install tmux and Agent Office **inside WSL**, not native PowerShell.
+
 ## Command line
 
 ```
@@ -39,6 +45,13 @@ agent-office [dir] [options]
       --city <name>       Put the office in a real city: its sun and live weather (open-meteo.com)
       --weather <kind>    Pin the weather: clear, cloudy, rain, storm, snow or fog
       --real-time-sky     Start the sky on the real clock, not a day an hour (env AGENT_OFFICE_SKY_CLOCK=real; ⚙️ Settings can switch it)
+
+agent-office tmux [--session NAME] [--detached] [office options]
+agent-office tmux [--session NAME] --status
+
+  Optional tmux-backed launch on Linux, macOS and WSL. Starts or reattaches to the
+  named session (default agent-office); detached starts but does not attach.
+  Existing sessions are never replaced and ignore any newly supplied office flags.
 
 agent-office setup [--projects <dir>] [--project <owner/repo>]... [--home <dir>]
 
