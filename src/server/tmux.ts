@@ -77,7 +77,7 @@ export function parseTmuxArgs(args: string[]): TmuxOptions {
 
 /** The command is handed as one shell command to tmux, so quote every untrusted argument. */
 export function tmuxShellCommand(parts: string[]): string {
-  return `exec ${parts.map((part) => `'${part.replace(/'/g, `'\\\\''`)}'`).join(' ')}`;
+  return `exec ${parts.map((part) => `'${part.replace(/'/g, `'\\''`)}'`).join(' ')}`;
 }
 
 /** Return a shell-style exit code; never terminate an existing Agent Office process. */
