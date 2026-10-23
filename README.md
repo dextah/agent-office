@@ -95,6 +95,22 @@ Every option is in [docs/configuration.md](docs/configuration.md). Choosing mode
 
 **Codex on Windows:** install and sign in to Codex on the machine running the office, then choose **Codex** when hiring (or start with `--agent codex`). Office hooks use PowerShell quoting on Windows. Open the worker's terminal and review/trust the generated commands in `/hooks`; until trusted, status tracking cannot start. After updating a source checkout, run `npm run build` and restart the office. Existing Codex processes keep their old hook commands: exit Codex with `/quit`, then press **R** at its desk, and review changed hooks again. See [Codex troubleshooting](docs/agents.md#codex-on-windows-and-hook-troubleshooting).
 
+### Keep the office running with tmux (optional)
+
+On Linux, macOS, or **Windows inside WSL2**, install tmux (`sudo apt install tmux` on Ubuntu/Debian, `sudo pacman -S tmux` on Arch) and launch the office through its optional tmux wrapper:
+
+```bash
+agent-office tmux                        # start the office in tmux, or reattach
+agent-office tmux --detached             # start it without attaching (good over SSH)
+agent-office tmux --status               # check whether its tmux session exists
+agent-office tmux --port 4700            # normal office options, on first start only
+agent-office tmux --session other --port 4701  # independent second office
+```
+
+When attached, press **Ctrl+B, then D** to detach and leave the office and its workers running; `agent-office tmux` reconnects without starting a second copy. Closing your SSH connection after detaching does not stop the tmux session. **Ctrl+C inside Agent Office still intentionally shuts it down and stops its workers.** This wrapper does not adopt an office already started outside tmux: choose it for the next startup rather than stopping an active office just to switch modes. If a session already exists, startup flags such as `--port` are ignored when you rejoin it.
+
+tmux is **not a native Windows application**. On Windows, install WSL2 (e.g. Ubuntu), install Node.js, your agent CLIs, Agent Office and tmux **inside WSL**, and run `agent-office tmux` there. Native PowerShell Agent Office remains supported without tmux. This mode keeps the **office process** alive across terminal disconnects; it does not expose each individual worker as an externally attachable tmux session. See [Configuration](docs/configuration.md#tmux-sessions).
+
 To run it from a clone instead:
 
 ```bash
