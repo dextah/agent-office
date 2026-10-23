@@ -80,6 +80,7 @@ Usage:
   agent-office prune [dir] [--dry-run] [--force]
   agent-office accounts [list|invite|revoke|role|password] ...
   agent-office tunnel [office@address | url]
+  agent-office tmux [--session <name>] [--detached] [office options]
 
 Runs the office. Every project is a floor of the building: ride the elevator,
 pick one of the repositories your \`gh\` login can see, and the office clones it
@@ -106,6 +107,8 @@ Commands:
   tunnel                  On your own computer, for an office that runs somewhere
                           else: every web server a worker starts there opens on the
                           same port here, by itself (see tunnel --help)
+  tmux                    Start or rejoin a tmux-backed office without stopping it
+                          when you disconnect (Linux/macOS/WSL; see tmux --help)
 
 Options:
       --home <dir>        Where the office keeps its data when no [dir] is given
