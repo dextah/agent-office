@@ -19,6 +19,7 @@ import { PROVIDERS, providerAdapter, titleNoise, type LaunchPlan, type ProviderF
 import { launchAcp } from './acp.js';
 import { clockWork } from './clock.js';
 import { childEnv } from './env.js';
+import { pastePrompt, writeInput } from './input.js';
 import { midTurn } from './lifecycle.js';
 import { restoreWorkers, saveWorkers } from './persist.js';
 import { WorkerPrs } from './pr.js';
@@ -31,8 +32,6 @@ import { COLORS, NAMES, newWorker } from './worker.js';
 import { WorkerTrees, lostMessage } from './worktree.js';
 
 const SCREEN_INTERVAL_MS = 250;
-/** How often a steady typist's "last typed" time is refreshed for everyone. */
-const TYPED_REFRESH_MS = 15_000;
 /** The most other repositories one worker can take on (see WorkerInfo.repos). */
 export const MAX_REPOS = 8;
 /** How often every worker's transcript is checked for new spend, on top of the hook-driven checks. */
@@ -458,42 +457,13 @@ export class WorkerManager {
   write(id: string, data: string, by: string) {
     const w = this.workers.get(id);
     if (!w) return;
-    if (w.dsh) {
-      // ACP has no terminal: the session buffers these into a line and submits it on Enter.
-      w.dsh.writeInput(data);
-      let changed = this.typed(w, by);
-      if (w.info.status === 'needs_input' && w.info.acked === false) {
-        w.info.acked = true;
-        changed = true;
-      }
-      if (changed) this.emitUpdate(w);
-      return;
-    }
-    if (!w.pty) return;
-    w.pty.write(data);
-    let changed = this.typed(w, by);
-    if (w.info.status === 'needs_input' && w.info.acked === false) {
-      w.info.acked = true;
-      changed = true;
-    }
-    if (changed) this.emitUpdate(w);
+    const adapter = w.info.kind === 'agent' ? providerAdapter(w.info.provider) : undefined;
+    if (writeInput(w, data, by, adapter, () => this.handleOf(w))) this.emitUpdate(w);
   }
 
   /** Keeps a file dropped or pasted into a worker's terminal on this machine; where it is, for the terminal to type. */
   drop(id: string, name: string, type: string, body: Buffer): string | undefined {
     return this.workers.has(id) ? this.drops.save(id, name, type, body) : undefined;
-  }
-
-  /**
-   * Remembers who typed into the terminal last. Says whether that's news: another person, or the
-   * same one after a pause (not every keystroke, or a typist would flood everyone with updates).
-   */
-  private typed(w: Worker, by: string): boolean {
-    const now = Date.now();
-    const last = w.info.lastInput;
-    if (last?.by === by && now - last.at < TYPED_REFRESH_MS) return false;
-    w.info.lastInput = { by, at: now };
-    return true;
   }
 
   /** Types a prompt into the agent's input box and submits it; `by` is the person who sent it, if any. */
@@ -514,8 +484,7 @@ export class WorkerManager {
     const clean = text.replace(/\r\n?/g, '\n').trim();
     if (!clean) return 'Empty prompt';
     // Bracketed paste keeps multi-line prompts in one message, then Enter submits.
-    w.pty.write(`\x1b[200~${clean}\x1b[201~`);
-    setTimeout(() => w.pty?.write('\r'), 120);
+    pastePrompt(w, clean);
     w.info.activity = truncate(clean, 80);
     this.tasks.notePrompt(w, clean);
     if (by) w.info.lastInput = { by, at: Date.now() };

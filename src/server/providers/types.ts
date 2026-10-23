@@ -99,6 +99,8 @@ export interface ProviderAdapter<S = undefined, P = undefined> {
   freshIfResumeFails?: boolean;
   /** Its hook route, /hooks/<id>. */
   hook?: ProviderHook<S>;
+  /** A person submitted Enter/Ctrl+C while waiting in a terminal; hooks may only resume after a long tool finishes. */
+  inputSubmitted?(h: WorkerHandle<S>): void;
   /** The provider whose hook route its workers report on, when not their own (a custom --agent speaks Claude Code's). */
   hooksAs?: AgentProvider;
   screen?: {

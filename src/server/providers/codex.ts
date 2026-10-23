@@ -6,7 +6,7 @@ import { codexHookArgs, codexModelArgs, normalizeCodexHook, writeCodexHook } fro
 import { hasCodexSwitch, withCodexArgs } from '../codex-args.js';
 import { CodexUsageReader } from '../codex-usage.js';
 import { codexMcpArgs } from '../office-workers.js';
-import { reduceLifecycle, type ToolTracker } from '../workers/lifecycle.js';
+import { answered, reduceLifecycle, type ToolTracker } from '../workers/lifecycle.js';
 import type { WorkerHandle } from '../workers/types.js';
 import { withYolo } from '../yolo.js';
 import type { ProviderAdapter } from './types.js';
@@ -92,6 +92,12 @@ function codexHook(h: WorkerHandle<CodexState>, event: string, payload: unknown)
 
 export const codex: ProviderAdapter<CodexState, CodexSetup> = {
   id: 'codex',
+  inputSubmitted(h) {
+    // Keep calls in flight, but don't let their later events revive the answered wait.
+    h.state.pending.clear();
+    h.state.permissionUnknown = false;
+    answered(h);
+  },
   scrubEnv: ['CODEX_THREAD_ID', 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE'],
   createState: () => ({ usage: new CodexUsageReader(), tools: new Map(), pending: new Set() }),
   prepare: ({ dataDir, mcpScript, codexArgs }) => ({ hook: writeCodexHook(dataDir), mcpScript, args: codexArgs }),
